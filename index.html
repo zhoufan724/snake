@@ -10,32 +10,79 @@
             background: #1a1a2e;
             color: #eee;
             text-align: center;
-            padding: 60px 20px;
+            padding: 30px 20px;
+            margin: 0;
         }
-        h1 { font-size: 42px; margin-bottom: 10px; }
-        .box {
-            display: inline-block;
+        h1 { font-size: 32px; margin: 10px 0 20px; }
+        canvas {
             background: #16213e;
-            border: 2px solid #0f3460;
-            border-radius: 12px;
-            padding: 30px 50px;
-            margin-top: 20px;
+            border: 3px solid #0f3460;
+            border-radius: 10px;
         }
-        #now { color: #e94560; font-weight: bold; }
+        .tip {
+            color: #888;
+            font-size: 14px;
+            margin-top: 16px;
+        }
     </style>
 </head>
 <body>
 
     <h1>🐍 贪吃蛇</h1>
-    <p>网站上线成功！游戏马上就来。</p>
 
-    <div class="box">
-        <p>现在是：<span id="now"></span></p>
-        <p style="font-size: 13px; color: #888;">（这行时间是 JavaScript 实时显示的）</p>
-    </div>
+    <canvas id="game" width="400" height="400"></canvas>
+
+    <p class="tip">v0.1 — 先画出蛇和食物</p>
+
 
     <script>
-        document.getElementById("now").textContent = new Date().toLocaleString("zh-CN");
+        // ---------- 拿到画布和画笔 ----------
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+
+        // ---------- 基础设置 ----------
+        const CELL = 20;                       // 每个格子 20 像素
+        const GRID = canvas.width / CELL;      // 一共多少格（400 / 20 = 20）
+
+        // ---------- 蛇：一串格子坐标 ----------
+        // 和 Python 的"列表套字典"一模一样！
+        let snake = [
+            { x: 10, y: 10 },      // 头
+            { x: 9,  y: 10 },      // 身体
+            { x: 8,  y: 10 },      // 尾巴
+        ];
+
+        // ---------- 食物 ----------
+        let food = { x: 15, y: 10 };
+
+
+        // ---------- 画一个方块（格子坐标 → 像素坐标）----------
+        function drawCell(x, y, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
+        }
+
+
+        // ---------- 画整个画面 ----------
+        function draw() {
+            // 1. 清空画布（用背景色涂满）
+            ctx.fillStyle = "#16213e";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. 画食物
+            drawCell(food.x, food.y, "#e94560");
+
+            // 3. 画蛇（从头到尾）
+            for (let i = 0; i < snake.length; i++) {
+                // 蛇头用亮色，身体用暗一点的色
+                const color = (i === 0) ? "#4ecca3" : "#2e8b72";
+                drawCell(snake[i].x, snake[i].y, color);
+            }
+        }
+
+
+        // ---------- 运行 ----------
+        draw();
     </script>
 
 </body>
