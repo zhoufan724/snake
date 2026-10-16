@@ -32,7 +32,7 @@
 
     <canvas id="game" width="400" height="400"></canvas>
 
-    <p class="tip">v0.1 — 先画出蛇和食物</p>
+    <p class="tip">v0.2 — 蛇会动了（暂时会穿墙）</p>
 
 
     <script>
@@ -42,10 +42,10 @@
 
         // ---------- 基础设置 ----------
         const CELL = 20;                       // 每个格子 20 像素
-        const GRID = canvas.width / CELL;      // 一共多少格（400 / 20 = 20）
+        const GRID = canvas.width / CELL;      // 一共 20 格
+        const SPEED = 200;                     // 多少毫秒走一步（越小越快）
 
-        // ---------- 蛇：一串格子坐标 ----------
-        // 和 Python 的"列表套字典"一模一样！
+        // ---------- 蛇 ----------
         let snake = [
             { x: 10, y: 10 },      // 头
             { x: 9,  y: 10 },      // 身体
@@ -56,7 +56,7 @@
         let food = { x: 15, y: 10 };
 
 
-        // ---------- 画一个方块（格子坐标 → 像素坐标）----------
+        // ---------- 画一个方块 ----------
         function drawCell(x, y, color) {
             ctx.fillStyle = color;
             ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
@@ -65,23 +65,44 @@
 
         // ---------- 画整个画面 ----------
         function draw() {
-            // 1. 清空画布（用背景色涂满）
             ctx.fillStyle = "#16213e";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 2. 画食物
             drawCell(food.x, food.y, "#e94560");
 
-            // 3. 画蛇（从头到尾）
             for (let i = 0; i < snake.length; i++) {
-                // 蛇头用亮色，身体用暗一点的色
                 const color = (i === 0) ? "#4ecca3" : "#2e8b72";
                 drawCell(snake[i].x, snake[i].y, color);
             }
         }
 
 
-        // ---------- 运行 ----------
+        // ---------- 走一步：加头、去尾 ----------
+        function move() {
+            const head = snake[0];
+
+            // 1. 算出新头的位置（往右一格）
+            const newHead = { x: head.x + 1, y: head.y };
+
+            // 2. 暂时让它穿墙（正式版会改成撞墙就死）
+            if (newHead.x >= GRID) newHead.x = 0;
+
+            // 3. 头加一格
+            snake.unshift(newHead);
+
+            // 4. 尾巴去一格
+            snake.pop();
+        }
+
+
+        // ---------- 定时器：每 SPEED 毫秒执行一次 ----------
+        setInterval(function () {
+            move();
+            draw();
+        }, SPEED);
+
+
+        // ---------- 先画一次，避免开头一闪 ----------
         draw();
     </script>
 
