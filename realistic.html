@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐍 写实蛇 · 挑一条</title>
+    <style>
+        body {
+            font-family: -apple-system, "PingFang SC", sans-serif;
+            background: #10141f;
+            color: #eee;
+            text-align: center;
+            padding: 24px 14px 40px;
+            margin: 0;
+        }
+        h1 { font-size: 24px; margin: 0 0 6px; }
+        .note { color: #7d8797; font-size: 14px; margin: 0 0 22px; }
+        .item { margin-bottom: 18px; }
+        .label {
+            font-size: 15px;
+            color: #d8b365;
+            margin-bottom: 6px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+        canvas {
+            width: min(460px, 92vw);
+            height: auto;
+            background: #1b2130;
+            border: 2px solid #2a3446;
+            border-radius: 12px;
+        }
+        .hint { color: #d8b365; font-size: 15px; margin-top: 26px; }
+    </style>
+</head>
+<body>
+
+    <h1>🐍 写实蛇 · 挑一条</h1>
+    <p class="note">六种都是真实蛇的花纹，用代码画的</p>
+
+    <div id="board"></div>
+
+    <p class="hint">选好了告诉我号码；也可以说"我要 3 号的花纹 + 5 号的颜色"</p>
+
+
+    <script>
+        // ---------- 蛇的形状 ----------
+        const PATH = [
+            { x: 10, y: 0 }, { x: 9, y: 0 }, { x: 8, y: 0 }, { x: 7, y: 0 },
+            { x: 7,  y: 1 }, { x: 6, y: 1 }, { x: 5, y: 1 }, { x: 4, y: 1 }, { x: 3, y: 1 }
+        ];
+
+        const CELL = 30;
+        const OFX = 40;
+        const OFY = 12;
+
+
+        // ---------- 六种写实风格 ----------
+        const STYLES = [
+            {
+                name: "1. 翠青蛇（鲜绿底 + 深色斑点）",
+                body: "#3fbf6f",
+                highlight: "rgba(190, 255, 215, 0.42)",
+                pattern: function (ctx, pts, bw) {
+                    ctx.fillStyle = "rgba(12, 70, 40, 0.42)";
+                    for (let i = 1; i < pts.length; i++) {
+                        ctx.beginPath();
+                        ctx.ellipse(pts[i].x, pts[i].y, 3.6, 2.4, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            },
+            {
+                name: "2. 玉米蛇（橙红底 + 深红马鞍纹）",
+                body: "#dd7b3a",
+                highlight: "rgba(255, 220, 180, 0.40)",
+                pattern: function (ctx, pts, bw) {
+                    ctx.fillStyle = "rgba(140, 30, 20, 0.62)";
+                    for (let i = 1; i < pts.length; i += 1) {
+                        ctx.beginPath();
+                        ctx.ellipse(pts[i].x, pts[i].y, 4.5, bw * 0.42, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            },
+            {
+                name: "3. 球蟒（棕褐底 + 深棕斑块）",
+                body: "#a9793f",
+                highlight: "rgba(255, 235, 200, 0.32)",
+                pattern: function (ctx, pts, bw) {
+                    for (let i = 0; i < pts.length; i++) {
+                        ctx.fillStyle = "rgba(60, 38, 18, 0.60)";
+                        ctx.beginPath();
+                        ctx.ellipse(pts[i].x, pts[i].y - 3, 5.2, 3.4, 0, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        ctx.fillStyle = "rgba(230, 195, 130, 0.35)";
+                        ctx.beginPath();
+                        ctx.ellipse(pts[i].x, pts[i].y + 3.5, 3.4, 2.0, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            },
+            {
+                name: "4. 银环蛇（黑白环纹）",
+                body: "#ececec",
+                highlight: "rgba(255, 255, 255, 0.30)",
+                pattern: function (ctx, pts, bw) {
+                    ctx.strokeStyle = "#15181f";
+                    ctx.lineWidth = bw;
+                    ctx.lineCap = "butt";
+                    for (let i = 1; i < pts.length; i += 2) {
+                        ctx.beginPath();
+                        ctx.moveTo(pts[i - 1].x, pts[i - 1].y);
+                        ctx.lineTo(pts[i].x, pts[i].y);
+                        ctx.stroke();
+                    }
+                    ctx.lineCap = "round";
+                }
+            },
+            {
+                name: "5. 蓝珊瑚蛇（深蓝底 + 黑环）",
+                body: "#2f5fb8",
+                highlight: "rgba(170, 210, 255, 0.38)",
+                pattern: function (ctx, pts, bw) {
+                    ctx.strokeStyle = "rgba(10, 15, 30, 0.85)";
+                    ctx.lineWidth = bw;
+                    ctx.lineCap = "butt";
+                    for (let i = 2; i < pts.length; i += 3) {
+                        ctx.beginPath();
+                        ctx.moveTo(pts[i - 1].x, pts[i - 1].y);
+                        ctx.lineTo(pts[i].x, pts[i].y);
+                        ctx.stroke();
+                    }
+                    ctx.lineCap = "round";
+                }
+            },
+            {
+                name: "6. 竹叶青（翠绿 + 白色侧线）",
+                body: "#2fae63",
+                highlight: "rgba(200, 255, 220, 0.45)",
+                pattern: function (ctx, pts, bw) {
+                    ctx.strokeStyle = "rgba(245, 255, 245, 0.75)";
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    for (let i = 0; i < pts.length; i++) {
+                        if (i === 0) ctx.moveTo(pts[i].x, pts[i].y + bw * 0.30);
+                        else ctx.lineTo(pts[i].x, pts[i].y + bw * 0.30);
+                    }
+                    ctx.stroke();
+                }
+            },
+        ];
+
+
+        // ---------- 画一条蛇 ----------
+        function drawSnake(canvas, style) {
+            const ctx = canvas.getContext("2d");
+            ctx.fillStyle = "#1b2130";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const pts = PATH.map(function (p) {
+                return { x: p.x * CELL + OFX, y: p.y * CELL + OFY + 26 };
+            });
+
+            const bw = CELL - 5;
+
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            // 1. 身体底色
+            ctx.lineWidth = bw;
+            ctx.strokeStyle = style.body;
+            ctx.beginPath();
+            ctx.moveTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+            for (let i = pts.length - 2; i >= 0; i--) ctx.lineTo(pts[i].x, pts[i].y);
+            ctx.stroke();
+
+            // 2. 花纹
+            if (style.pattern) style.pattern(ctx, pts, bw);
+
+            // 3. 背脊高光（让身体看起来是圆的，不是扁的）
+            ctx.lineWidth = bw * 0.28;
+            ctx.strokeStyle = style.highlight;
+            ctx.beginPath();
+            ctx.moveTo(pts[pts.length - 1].x, pts[pts.length - 1].y - bw * 0.20);
+            for (let i = pts.length - 2; i >= 0; i--) {
+                ctx.lineTo(pts[i].x, pts[i].y - bw * 0.20);
+            }
+            ctx.stroke();
+
+            // 4. 蛇头（在"朝右"的坐标系里画，再旋转到实际方向）
+            const head = pts[0];
+            const fdx = pts[0].x - pts[1].x;
+            const fdy = pts[0].y - pts[1].y;
+            const angle = Math.atan2(fdy, fdx);
+
+            ctx.save();
+            ctx.translate(head.x, head.y);
+            ctx.rotate(angle);
+
+            // 分叉舌头（先画，压在头下面）
+            ctx.strokeStyle = "#e0435c";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(bw * 0.62, 0);
+            ctx.lineTo(bw * 0.95, 0);
+            ctx.moveTo(bw * 0.95, 0);
+            ctx.lineTo(bw * 1.20, -3.5);
+            ctx.moveTo(bw * 0.95, 0);
+            ctx.lineTo(bw * 1.20, 3.5);
+            ctx.stroke();
+
+            // 头：椭圆（比身体宽一点、长一点）
+            ctx.fillStyle = style.body;
+            ctx.beginPath();
+            ctx.ellipse(1, 0, bw * 0.78, bw * 0.60, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 头部背脊高光
+            ctx.fillStyle = style.highlight;
+            ctx.beginPath();
+            ctx.ellipse(1, -bw * 0.16, bw * 0.50, bw * 0.26, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 眼睛：金色 + 竖瞳
+            const exs = [bw * 0.34, bw * -0.02];
+            for (let k = 0; k < 2; k++) {
+                const ex = exs[k];
+                const ey = -bw * 0.26;
+
+                ctx.fillStyle = "#d9b44a";
+                ctx.beginPath();
+                ctx.ellipse(ex, ey, 3.0, 3.0, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = "#0b0d12";
+                ctx.beginPath();
+                ctx.ellipse(ex, ey, 0.9, 2.4, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 鼻孔
+            ctx.fillStyle = "rgba(0,0,0,0.45)";
+            ctx.beginPath();
+            ctx.arc(bw * 0.60, -bw * 0.10, 0.9, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(bw * 0.60, bw * 0.10, 0.9, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+
+        // ---------- 生成页面 ----------
+        const board = document.getElementById("board");
+
+        STYLES.forEach(function (style) {
+            const item = document.createElement("div");
+            item.className = "item";
+
+            const label = document.createElement("div");
+            label.className = "label";
+            label.textContent = style.name;
+
+            const canvas = document.createElement("canvas");
+            canvas.width = 460;
+            canvas.height = 120;
+
+            item.appendChild(label);
+            item.appendChild(canvas);
+            board.appendChild(item);
+
+            drawSnake(canvas, style);
+        });
+    </script>
+
+</body>
+</html>

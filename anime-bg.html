@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✨ 二次元背景 · 挑一个</title>
+    <style>
+        body {
+            font-family: -apple-system, "PingFang SC", sans-serif;
+            background: #08090f;
+            color: #eee;
+            text-align: center;
+            padding: 24px 14px 40px;
+            margin: 0;
+        }
+        h1 { font-size: 24px; margin: 0 0 6px; }
+        .note { color: #888; font-size: 14px; margin: 0 0 24px; }
+        .grid {
+            display: flex; flex-wrap: wrap; gap: 26px;
+            justify-content: center; max-width: 950px; margin: 0 auto;
+        }
+        .label {
+            font-size: 14px; color: #c9a6ff;
+            margin-bottom: 8px; font-weight: bold;
+        }
+        canvas { border-radius: 14px; width: 280px; height: auto; }
+        .hint { color: #c9a6ff; font-size: 15px; margin-top: 34px; }
+    </style>
+</head>
+<body>
+
+    <h1>✨ 二次元背景 · 挑一个</h1>
+    <p class="note">都是用代码画的（星星、花瓣、光斑、极光…）</p>
+
+    <div class="grid" id="board"></div>
+    <p class="hint">告诉我号码吧：1 ~ 6</p>
+
+
+    <script>
+        const CELL = 20;
+
+        // 小工具：随机数
+        function rnd(a, b) { return a + Math.random() * (b - a); }
+
+        // 小工具：画一颗星星（十字闪光）
+        function star(ctx, x, y, r, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x, y - r);
+            ctx.lineTo(x + r * 0.22, y - r * 0.22);
+            ctx.lineTo(x + r, y);
+            ctx.lineTo(x + r * 0.22, y + r * 0.22);
+            ctx.lineTo(x, y + r);
+            ctx.lineTo(x - r * 0.22, y + r * 0.22);
+            ctx.lineTo(x - r, y);
+            ctx.lineTo(x - r * 0.22, y - r * 0.22);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+
+        const THEMES = [
+            {
+                name: "1. 星空夜（深蓝紫 + 星星）",
+                base: ["#2a2f5e", "#161a33", "#0a0b16"],
+                grid: "rgba(150,190,255,0.045)",
+                border: "#2b3a6b", glow: "rgba(120,160,255,0.25)",
+                decorate: function (ctx, W, H) {
+                    for (let i = 0; i < 110; i++) {
+                        const x = rnd(0, W), y = rnd(0, H);
+                        const r = rnd(0.4, 1.5);
+                        ctx.fillStyle = `rgba(255,255,255,${rnd(0.25, 0.85)})`;
+                        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+                    }
+                    for (let i = 0; i < 5; i++) {
+                        star(ctx, rnd(30, W - 30), rnd(30, H - 30), rnd(5, 10),
+                             `rgba(200,225,255,${rnd(0.35, 0.7)})`);
+                    }
+                }
+            },
+            {
+                name: "2. 樱花飘（紫粉 + 花瓣）",
+                base: ["#3b2145", "#26162e", "#150b1a"],
+                grid: "rgba(255,170,215,0.04)",
+                border: "#5a2f52", glow: "rgba(255,140,200,0.25)",
+                decorate: function (ctx, W, H) {
+                    for (let i = 0; i < 60; i++) {
+                        const x = rnd(0, W), y = rnd(0, H);
+                        ctx.save();
+                        ctx.translate(x, y);
+                        ctx.rotate(rnd(0, Math.PI));
+                        ctx.fillStyle = `rgba(255,${rnd(170,215)|0},215,${rnd(0.15,0.5)})`;
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, rnd(3.5, 6.5), rnd(1.8, 3.2), 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                }
+            },
+            {
+                name: "3. 梦幻光斑（紫粉 bokeh）",
+                base: ["#2c2050", "#1c1533", "#0f0a1d"],
+                grid: "rgba(200,160,255,0.04)",
+                border: "#3f2f6b", glow: "rgba(180,130,255,0.28)",
+                decorate: function (ctx, W, H) {
+                    for (let i = 0; i < 22; i++) {
+                        const x = rnd(0, W), y = rnd(0, H), r = rnd(14, 52);
+                        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+                        const hue = rnd(280, 340) | 0;
+                        g.addColorStop(0, `hsla(${hue}, 85%, 70%, 0.32)`);
+                        g.addColorStop(1, `hsla(${hue}, 85%, 70%, 0)`);
+                        ctx.fillStyle = g;
+                        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+                    }
+                }
+            },
+            {
+                name: "4. 深海泡泡（青蓝 + 气泡）",
+                base: ["#12384a", "#0b2431", "#05121a"],
+                grid: "rgba(120,255,240,0.04)",
+                border: "#1b5566", glow: "rgba(80,230,220,0.25)",
+                decorate: function (ctx, W, H) {
+                    for (let i = 0; i < 34; i++) {
+                        const x = rnd(0, W), y = rnd(0, H), r = rnd(3, 13);
+                        ctx.strokeStyle = `rgba(160,255,245,${rnd(0.10, 0.30)})`;
+                        ctx.lineWidth = 1.2;
+                        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+                        ctx.fillStyle = `rgba(220,255,255,${rnd(0.05, 0.16)})`;
+                        ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.28, 0, Math.PI * 2); ctx.fill();
+                    }
+                }
+            },
+            {
+                name: "5. 极光（绿紫光带）",
+                base: ["#16233f", "#0f1830", "#070b16"],
+                grid: "rgba(140,255,210,0.04)",
+                border: "#1f4a52", glow: "rgba(80,255,190,0.25)",
+                decorate: function (ctx, W, H) {
+                    for (let i = 0; i < 5; i++) {
+                        ctx.save();
+                        ctx.translate(rnd(-40, W), rnd(-20, H * 0.75));
+                        ctx.rotate(rnd(-0.9, -0.25));
+                        const g = ctx.createLinearGradient(0, -70, 0, 70);
+                        const hue = (i % 2 === 0) ? 155 : 275;
+                        g.addColorStop(0, `hsla(${hue}, 90%, 65%, 0)`);
+                        g.addColorStop(0.5, `hsla(${hue}, 90%, 65%, ${rnd(0.14, 0.26)})`);
+                        g.addColorStop(1, `hsla(${hue}, 90%, 65%, 0)`);
+                        ctx.fillStyle = g;
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, rnd(90, 190), rnd(45, 80), 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                }
+            },
+            {
+                name: "6. 银河（星云 + 星点）",
+                base: ["#241a3d", "#170f2c", "#0a0616"],
+                grid: "rgba(190,170,255,0.04)",
+                border: "#3a2b5e", glow: "rgba(160,130,255,0.26)",
+                decorate: function (ctx, W, H) {
+                    // 一条斜向的星云
+                    ctx.save();
+                    ctx.translate(W * 0.5, H * 0.5);
+                    ctx.rotate(-0.6);
+                    const g = ctx.createLinearGradient(0, -70, 0, 70);
+                    g.addColorStop(0, "rgba(150,120,255,0)");
+                    g.addColorStop(0.5, "rgba(150,120,255,0.22)");
+                    g.addColorStop(1, "rgba(150,120,255,0)");
+                    ctx.fillStyle = g;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, W * 0.75, 62, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+
+                    // 星点
+                    for (let i = 0; i < 150; i++) {
+                        const x = rnd(0, W), y = rnd(0, H);
+                        const r = rnd(0.3, 1.4);
+                        ctx.fillStyle = `rgba(255,255,255,${rnd(0.2, 0.9)})`;
+                        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+                    }
+                    for (let i = 0; i < 4; i++) {
+                        star(ctx, rnd(30, W - 30), rnd(30, H - 30), rnd(5, 9),
+                             `rgba(220,210,255,${rnd(0.4, 0.75)})`);
+                    }
+                }
+            },
+        ];
+
+
+        // ---------- 画一个预览 ----------
+        function drawPreview(canvas, theme) {
+            const ctx = canvas.getContext("2d");
+            const W = canvas.width, H = canvas.height;
+            const GRID = W / CELL;
+
+            // ① 底：径向渐变
+            const grad = ctx.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, W * 0.8);
+            grad.addColorStop(0,    theme.base[0]);
+            grad.addColorStop(0.62, theme.base[1]);
+            grad.addColorStop(1,    theme.base[2]);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+
+            // ② 装饰（星星/花瓣/光斑…）
+            theme.decorate(ctx, W, H);
+
+            // ③ 很淡的网格
+            ctx.strokeStyle = theme.grid;
+            ctx.lineWidth = 1;
+            for (let i = 1; i < GRID; i++) {
+                const p = i * CELL + 0.5;
+                ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, H); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(W, p); ctx.stroke();
+            }
+
+            // ④ 示例蛇
+            const path = [[6, 8], [5, 8], [4, 8], [3, 8], [3, 9], [2, 9]];
+            const pts = path.map(function (p) {
+                return { x: p[0] * CELL + CELL / 2, y: p[1] * CELL + CELL / 2 };
+            });
+
+            const bw = CELL - 3;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            const sg = ctx.createLinearGradient(
+                pts[0].x, pts[0].y, pts[pts.length - 1].x, pts[pts.length - 1].y
+            );
+            sg.addColorStop(0, "hsl(155, 68%, 64%)");
+            sg.addColorStop(1, "hsl(155, 68%, 36%)");
+
+            ctx.strokeStyle = sg;
+            ctx.lineWidth = bw;
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+            ctx.stroke();
+
+            const head = pts[0];
+            ctx.fillStyle = "#8bf0c4";
+            ctx.beginPath(); ctx.arc(head.x, head.y, bw / 2 + 1.2, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath(); ctx.arc(head.x + 1, head.y - 4, 2.6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(head.x + 1, head.y + 4, 2.6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#0d1b2a";
+            ctx.beginPath(); ctx.arc(head.x + 2, head.y - 4, 1.4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(head.x + 2, head.y + 4, 1.4, 0, Math.PI * 2); ctx.fill();
+
+            // ⑤ 苹果
+            ctx.save();
+            ctx.shadowColor = "#ff5566";
+            ctx.shadowBlur = 16;
+            ctx.font = "19px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("🍎", 11 * CELL + CELL / 2, 8 * CELL + CELL / 2 + 1);
+            ctx.restore();
+        }
+
+
+        const board = document.getElementById("board");
+
+        THEMES.forEach(function (theme) {
+            const item = document.createElement("div");
+
+            const label = document.createElement("div");
+            label.className = "label";
+            label.textContent = theme.name;
+
+            const canvas = document.createElement("canvas");
+            canvas.width = 280;
+            canvas.height = 280;
+            canvas.style.border = "3px solid " + theme.border;
+            canvas.style.boxShadow = "0 0 26px " + theme.glow + ", inset 0 0 30px rgba(0,0,0,0.45)";
+
+            item.appendChild(label);
+            item.appendChild(canvas);
+            board.appendChild(item);
+
+            drawPreview(canvas, theme);
+        });
+    </script>
+
+</body>
+</html>

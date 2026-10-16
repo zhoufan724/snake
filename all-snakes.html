@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐍 全部蛇的样式（18 条）</title>
+    <style>
+        body {
+            font-family: -apple-system, "PingFang SC", sans-serif;
+            background: #0d0818;
+            color: #eee;
+            text-align: center;
+            padding: 24px 14px 50px;
+            margin: 0;
+        }
+        h1 { font-size: 24px; margin: 0 0 6px; }
+        .note { color: #8f83ad; font-size: 14px; margin: 0 0 26px; }
+        h2 {
+            font-size: 18px;
+            color: #c9a6ff;
+            margin: 34px 0 16px;
+            padding-top: 18px;
+            border-top: 1px solid #2a2040;
+        }
+        h2:first-of-type { border-top: none; margin-top: 0; }
+        .grid {
+            display: flex; flex-wrap: wrap; gap: 20px;
+            justify-content: center; max-width: 1000px; margin: 0 auto;
+        }
+        .label {
+            font-size: 13px; color: #d8b365;
+            margin-bottom: 6px; font-weight: bold;
+        }
+        canvas {
+            width: 300px; height: auto;
+            border-radius: 12px;
+            border: 2px solid #3a2b5e;
+            background: #170f2c;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🐍 全部蛇的样式</h1>
+    <p class="note">三组，一共 18 条。看好了告诉我"第几组第几号"，比如"二次元 3 号"</p>
+
+    <div id="board"></div>
+
+
+    <script>
+        const CELL = 30;
+
+        // 所有蛇用同一个形状，方便对比
+        const PATH = [
+            { x: 10, y: 0 }, { x: 9, y: 0 }, { x: 8, y: 0 }, { x: 7, y: 0 },
+            { x: 7,  y: 1 }, { x: 6, y: 1 }, { x: 5, y: 1 }, { x: 4, y: 1 }, { x: 3, y: 1 }
+        ];
+
+        function toPts() {
+            return PATH.map(function (p) {
+                return { x: p.x * CELL + 44, y: p.y * CELL + 20 + 30 };
+            });
+        }
+
+
+        // ════════════════ 画法 1：简约 ════════════════
+        function drawSimple(ctx, pts, style) {
+            const bw = CELL - 5;
+
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.lineWidth = bw;
+
+            for (let i = pts.length - 1; i >= 1; i--) {
+                const t = i / (pts.length - 1);
+                ctx.strokeStyle = style.body(t, i);
+                ctx.beginPath();
+                ctx.moveTo(pts[i].x, pts[i].y);
+                ctx.lineTo(pts[i - 1].x, pts[i - 1].y);
+                ctx.stroke();
+            }
+
+            if (style.decorate) style.decorate(ctx, pts);
+
+            const head = pts[0];
+            ctx.fillStyle = style.head;
+            ctx.beginPath();
+            ctx.arc(head.x, head.y, bw / 2 + 1.8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 简单的眼睛 + 腮红
+            const fx = head.x + 1.5, fy = head.y;
+            const px = 0, py = 4.5;
+
+            ctx.fillStyle = "rgba(255,120,150,0.55)";
+            ctx.beginPath(); ctx.arc(fx + px * 1.55 - 2, fy + py * 1.55, 2.6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(fx - px * 1.55 - 2, fy - py * 1.55, 2.6, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath(); ctx.arc(fx + px, fy + py, 4.2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(fx - px, fy - py, 4.2, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = "#0d1b2a";
+            ctx.beginPath(); ctx.arc(fx + px + 1.4, fy + py, 2.2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(fx - px + 1.4, fy - py, 2.2, 0, Math.PI * 2); ctx.fill();
+        }
+
+        const SIMPLE = [
+            { name: "1. 经典绿", body: function (t) { return `hsl(155, 68%, ${62 - t * 28}%)`; }, head: "#8bf0c4" },
+            { name: "2. 彩虹蛇", body: function (t) { return `hsl(${t * 320}, 78%, 62%)`; }, head: "hsl(0, 78%, 62%)" },
+            {
+                name: "3. 斑点蛇",
+                body: function (t) { return `hsl(145, 45%, ${66 - t * 12}%)`; },
+                head: "#b6f5d8",
+                decorate: function (ctx, pts) {
+                    for (let i = 1; i < pts.length; i += 2) {
+                        ctx.fillStyle = "rgba(20,90,60,0.55)";
+                        ctx.beginPath(); ctx.arc(pts[i].x, pts[i].y, 3.6, 0, Math.PI * 2); ctx.fill();
+                    }
+                }
+            },
+            { name: "4. 条纹蛇", body: function (t, i) { return (i % 2 === 0) ? "hsl(150,65%,62%)" : "hsl(150,60%,38%)"; }, head: "#9df3cb" },
+            { name: "5. 蓝精灵蛇", body: function (t) { return `hsl(210, 72%, ${64 - t * 26}%)`; }, head: "#a8d8ff" },
+            { name: "6. 粉红可爱蛇", body: function (t) { return `hsl(335, 76%, ${70 - t * 26}%)`; }, head: "#ffc2d6" },
+        ];
+
+
+        // ════════════════ 画法 2：写实 ════════════════
+        function drawRealistic(ctx, pts, style) {
+            const bw = CELL - 5;
+
+            // 身体底色
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.lineWidth = bw;
+            ctx.strokeStyle = style.body;
+            ctx.beginPath();
+            ctx.moveTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+            for (let i = pts.length - 2; i >= 0; i--) ctx.lineTo(pts[i].x, pts[i].y);
+            ctx.stroke();
+
+            // 花纹
+            if (style.pattern) style.pattern(ctx, pts, bw);
+
+            // 背脊高光
+            ctx.lineWidth = bw * 0.28;
+            ctx.strokeStyle = style.highlight;
+            ctx.beginPath();
+            ctx.moveTo(pts[pts.length - 1].x, pts[pts.length - 1].y - bw * 0.20);
+            for (let i = pts.length - 2; i >= 0; i--) ctx.lineTo(pts[i].x, pts[i].y - bw * 0.20);
+            ctx.stroke();
+
+            // 头
+            const head = pts[0];
+            const angle = Math.atan2(pts[0].y - pts[1].y, pts[0].x - pts[1].x);
+
+            ctx.save();
+            ctx.translate(head.x, head.y);
+            ctx.rotate(angle);
+
+            // 舌头
+            ctx.strokeStyle = "#e0435c";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(bw * 0.62, 0); ctx.lineTo(bw * 0.95, 0);
+            ctx.moveTo(bw * 0.95, 0); ctx.lineTo(bw * 1.20, -3.5);
+            ctx.moveTo(bw * 0.95, 0); ctx.lineTo(bw * 1.20, 3.5);
+            ctx.stroke();
+
+            // 椭圆头
+            ctx.fillStyle = style.body;
+            ctx.beginPath();
+            ctx.ellipse(1, 0, bw * 0.78, bw * 0.60, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = style.highlight;
+            ctx.beginPath();
+            ctx.ellipse(1, -bw * 0.16, bw * 0.50, bw * 0.26, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 金色竖瞳
+            const exs = [bw * 0.34, bw * -0.02];
+            for (let k = 0; k < 2; k++) {
+                ctx.fillStyle = "#d9b44a";
+                ctx.beginPath(); ctx.ellipse(exs[k], -bw * 0.26, 3.0, 3.0, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#0b0d12";
+                ctx.beginPath(); ctx.ellipse(exs[k], -bw * 0.26, 0.9, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+            }
+
+            // 鼻孔
+            ctx.fillStyle = "rgba(0,0,0,0.45)";
+            ctx.beginPath(); ctx.arc(bw * 0.60, -bw * 0.10, 0.9, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(bw * 0.60,  bw * 0.10, 0.9, 0, Math.PI * 2); ctx.fill();
+
+            ctx.restore();
+        }
+
+        const REALISTIC = [
+            {
+                name: "1. 翠青蛇", body: "#3fbf6f", highlight: "rgba(190,255,215,0.42)",
+                pattern: function (ctx, pts) {
+                    ctx.fillStyle = "rgba(12,70,40,0.42)";
+                    for (let i = 1; i < pts.length; i++) {
+                        ctx.beginPath(); ctx.ellipse(pts[i].x, pts[i].y, 3.6, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+                    }
+                }
+            },
+            {
+                name: "2. 玉米蛇", body: "#dd7b3a", highlight: "rgba(255,220,180,0.40)",
+                pattern: function (ctx, pts, bw) {
+                    ctx.fillStyle = "rgba(140,30,20,0.62)";
+                    for (let i = 1; i < pts.length; i++) {
+                        ctx.beginPath(); ctx.ellipse(pts[i].x, pts[i].y, 4.5, bw * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+                    }
+                }
+            },
+            {
+                name: "3. 球蟒", body: "#a9793f", highlight: "rgba(255,235,200,0.32)",
+                pattern: function (ctx, pts) {
+                    for (let i = 0; i < pts.length; i++) {
+                        ctx.fillStyle = "rgba(60,38,18,0.60)";
+                        ctx.beginPath(); ctx.ellipse(pts[i].x, pts[i].y - 3, 5.2, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = "rgba(230,195,130,0.35)";
+                        ctx.beginPath(); ctx.ellipse(pts[i].x, pts[i].y + 3.5, 3.4, 2.0, 0, 0, Math.PI * 2); ctx.fill();
+                    }
+                }
+            },
+            {
+                name: "4. 银环蛇", body: "#ececec", highlight: "rgba(255,255,255,0.30)",
+                pattern: function (ctx, pts, bw) {
+                    ctx.strokeStyle = "#15181f"; ctx.lineWidth = bw; ctx.lineCap = "butt";
+                    for (let i = 1; i < pts.length; i += 2) {
+                        ctx.beginPath(); ctx.moveTo(pts[i-1].x, pts[i-1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
+                    }
+                    ctx.lineCap = "round";
+                }
+            },
+            {
+                name: "5. 蓝珊瑚蛇", body: "#2f5fb8", highlight: "rgba(170,210,255,0.38)",
+                pattern: function (ctx, pts, bw) {
+                    ctx.strokeStyle = "rgba(10,15,30,0.85)"; ctx.lineWidth = bw; ctx.lineCap = "butt";
+                    for (let i = 2; i < pts.length; i += 3) {
+                        ctx.beginPath(); ctx.moveTo(pts[i-1].x, pts[i-1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
+                    }
+                    ctx.lineCap = "round";
+                }
+            },
+            {
+                name: "6. 竹叶青", body: "#2fae63", highlight: "rgba(200,255,220,0.45)",
+                pattern: function (ctx, pts, bw) {
+                    ctx.strokeStyle = "rgba(245,255,245,0.75)"; ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    for (let i = 0; i < pts.length; i++) {
+                        if (i === 0) ctx.moveTo(pts[i].x, pts[i].y + bw * 0.30);
+                        else ctx.lineTo(pts[i].x, pts[i].y + bw * 0.30);
+                    }
+                    ctx.stroke();
+                }
+            },
+        ];
+
+
+        // ════════════════ 画法 3：二次元 ════════════════
+        function drawAnimeEye(ctx, ex, ey, style) {
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath(); ctx.ellipse(ex, ey, 3.7, 4.3, 0, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = style.iris;
+            ctx.beginPath(); ctx.ellipse(ex, ey + 0.4, 2.9, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = style.pupil;
+            ctx.beginPath(); ctx.ellipse(ex, ey + 0.55, 1.45, 1.75, 0, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath(); ctx.arc(ex - 1.2, ey - 1.6, 1.3, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = "rgba(255,255,255,0.85)";
+            ctx.beginPath(); ctx.arc(ex + 1.1, ey + 1.5, 0.7, 0, Math.PI * 2); ctx.fill();
+        }
+
+        function drawAnime(ctx, pts, style) {
+            const bw = CELL - 6;
+
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            const grad = ctx.createLinearGradient(
+                pts[0].x, pts[0].y, pts[pts.length - 1].x, pts[pts.length - 1].y
+            );
+            grad.addColorStop(0, style.body);
+            grad.addColorStop(1, style.tail);
+
+            ctx.lineWidth = bw;
+            ctx.strokeStyle = grad;
+            ctx.beginPath();
+            ctx.moveTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+            for (let i = pts.length - 2; i >= 0; i--) ctx.lineTo(pts[i].x, pts[i].y);
+            ctx.stroke();
+
+            const head = pts[0];
+            const fdx = pts[0].x - pts[1].x;
+            const fdy = pts[0].y - pts[1].y;
+            const flen = Math.sqrt(fdx * fdx + fdy * fdy);
+            const ux = fdx / flen, uy = fdy / flen;
+            const nx = -uy, ny = ux;
+
+            const headR = bw / 2 + 1.2;
+
+            ctx.fillStyle = style.head;
+            ctx.beginPath(); ctx.arc(head.x, head.y, headR, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = "rgba(255,255,255,0.30)";
+            ctx.beginPath();
+            ctx.ellipse(head.x - ux * 2, head.y - uy * 2, headR * 0.52, headR * 0.34,
+                        Math.atan2(uy, ux), 0, Math.PI * 2);
+            ctx.fill();
+
+            // 腮红
+            const cheekOff = headR * 0.70;
+            ctx.fillStyle = style.blush;
+            ctx.beginPath();
+            ctx.ellipse(head.x + nx * cheekOff - ux * 2, head.y + ny * cheekOff - uy * 2,
+                        2.9, 2.0, Math.atan2(uy, ux), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(head.x - nx * cheekOff - ux * 2, head.y - ny * cheekOff - uy * 2,
+                        2.9, 2.0, Math.atan2(uy, ux), 0, Math.PI * 2);
+            ctx.fill();
+
+            // 大眼睛
+            const eyeFwd = headR * 0.18;
+            const eyeSide = headR * 0.44;
+
+            drawAnimeEye(ctx, head.x + ux * eyeFwd + nx * eyeSide,
+                              head.y + uy * eyeFwd + ny * eyeSide, style);
+            drawAnimeEye(ctx, head.x + ux * eyeFwd - nx * eyeSide,
+                              head.y + uy * eyeFwd - ny * eyeSide, style);
+        }
+
+        const ANIME = [
+            { name: "1. 薄荷萌蛇", body: "#8ef5c4", tail: "#3fc48d", head: "#a8ffd6", iris: "#1f6b52", pupil: "#0b2e24", blush: "rgba(255,150,180,0.6)" },
+            { name: "2. 樱花萌蛇", body: "#ffb8d4", tail: "#ff7aae", head: "#ffd0e2", iris: "#8c2f5a", pupil: "#3d0f26", blush: "rgba(255,120,160,0.55)" },
+            { name: "3. 天空萌蛇", body: "#9fd8ff", tail: "#4aa8f0", head: "#c2e7ff", iris: "#1d4f8c", pupil: "#0a2340", blush: "rgba(255,150,180,0.55)" },
+            { name: "4. 奶油萌蛇", body: "#ffe9a8", tail: "#f0b73f", head: "#fff4cd", iris: "#8c6118", pupil: "#3d2807", blush: "rgba(255,140,140,0.5)" },
+            { name: "5. 紫罗兰萌蛇", body: "#cdb4ff", tail: "#8b5cf6", head: "#e2d4ff", iris: "#4c2c8c", pupil: "#1f0f40", blush: "rgba(255,150,200,0.55)" },
+            { name: "6. 午夜萌蛇", body: "#5d6b8a", tail: "#2b3450", head: "#7b8aab", iris: "#ff9ec4", pupil: "#3d0f26", blush: "rgba(255,120,160,0.45)" },
+        ];
+
+
+        // ════════════════ 生成页面 ════════════════
+        const GROUPS = [
+            { title: "① 简约款（纯色 / 花纹）", draw: drawSimple, styles: SIMPLE },
+            { title: "② 写实款（真实蛇纹 + 竖瞳 + 舌头）", draw: drawRealistic, styles: REALISTIC },
+            { title: "③ 二次元款（大眼睛 + 腮红 + 糖果色）", draw: drawAnime, styles: ANIME },
+        ];
+
+        const board = document.getElementById("board");
+
+        GROUPS.forEach(function (group) {
+            const h2 = document.createElement("h2");
+            h2.textContent = group.title;
+            board.appendChild(h2);
+
+            const grid = document.createElement("div");
+            grid.className = "grid";
+
+            group.styles.forEach(function (style) {
+                const item = document.createElement("div");
+
+                const label = document.createElement("div");
+                label.className = "label";
+                label.textContent = style.name;
+
+                const canvas = document.createElement("canvas");
+                canvas.width = 460;
+                canvas.height = 130;
+
+                item.appendChild(label);
+                item.appendChild(canvas);
+                grid.appendChild(item);
+
+                const ctx = canvas.getContext("2d");
+                ctx.fillStyle = "#170f2c";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                group.draw(ctx, toPts(), style);
+            });
+
+            board.appendChild(grid);
+        });
+    </script>
+
+</body>
+</html>

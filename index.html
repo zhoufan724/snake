@@ -8,7 +8,7 @@
         * { -webkit-tap-highlight-color: transparent; }
         body {
             font-family: -apple-system, "PingFang SC", sans-serif;
-            background: #1a1a2e;
+            background: #0d0818;
             color: #eee;
             text-align: center;
             padding: 10px 10px 14px;
@@ -19,7 +19,7 @@
         }
         h1 { font-size: 22px; margin: 2px 0 6px; }
         .score { font-size: 17px; margin: 0 0 8px; color: #888; }
-        .score b { color: #4ecca3; font-size: 24px; }
+        .score b { color: #c9a6ff; font-size: 24px; }
         .score i { font-style: normal; color: #f0c040; font-weight: bold; font-size: 20px; }
 
         .speedbar { display: flex; gap: 6px; justify-content: center; margin: 0 0 6px; }
@@ -28,23 +28,25 @@
             font-size: 12px;
             padding: 5px 10px;
             color: #888;
-            background: #16213e;
-            border: 2px solid #0f3460;
+            background: #1c1435;
+            border: 2px solid #3a2b5e;
             border-radius: 20px;
             cursor: pointer;
             touch-action: none;
         }
-        .spd.on { color: #1a1a2e; background: #4ecca3; border-color: #4ecca3; font-weight: bold; }
+        .spd.on { color: #1a1030; background: #b18cff; border-color: #b18cff; font-weight: bold; }
 
-        .rule { font-size: 12px; color: #7a7a8c; margin: 0 0 8px; min-height: 16px; }
+        .rule { font-size: 12px; color: #8f83ad; margin: 0 0 8px; min-height: 16px; }
 
         canvas {
             width: min(400px, 82vw);
             height: auto;
-            background: #16213e;
-            border: 3px solid #0f3460;
+            background: #170f2c;
+            border: 3px solid #3a2b5e;
             border-radius: 14px;
-            box-shadow: 0 0 40px rgba(78, 204, 163, 0.15);
+            box-shadow:
+                0 0 42px rgba(160, 130, 255, 0.26),
+                inset 0 0 55px rgba(0, 0, 0, 0.55);
             touch-action: none;
         }
         .dpad {
@@ -61,21 +63,21 @@
         }
         .pad-btn {
             font-size: 20px;
-            color: #4ecca3;
-            background: #16213e;
-            border: 2px solid #0f3460;
+            color: #c9a6ff;
+            background: #1c1435;
+            border: 2px solid #3a2b5e;
             border-radius: 12px;
             cursor: pointer;
             touch-action: none;
             transition: background 0.08s;
         }
-        .pad-btn:active { background: #0f3460; transform: scale(0.94); }
+        .pad-btn:active { background: #3a2b5e; transform: scale(0.94); }
         .pad-up    { grid-area: up; }
         .pad-left  { grid-area: left; }
         .pad-right { grid-area: right; }
         .pad-down  { grid-area: down; }
 
-        .tip { color: #666; font-size: 12px; margin-top: 12px; }
+        .tip { color: #6b6280; font-size: 12px; margin-top: 12px; }
         .desktop-only { display: inline; }
         @media (hover: none) { .desktop-only { display: none; } }
     </style>
@@ -107,7 +109,7 @@
         <button class="pad-btn pad-down"  data-x="0"  data-y="1">▼</button>
     </div>
 
-    <p class="tip">v0.17 — 三档开局速度一样，每吃 3 个食物加快一点</p>
+    <p class="tip">v0.25 — 薄荷萌蛇 三档开局速度一样，每吃 3 个食物加快一点</p>
 
 
     <script>
@@ -119,6 +121,64 @@
 
         const CELL = 20;
         const GRID = canvas.width / CELL;
+
+        // ---------- 背景：银河主题（只画一次，之后每帧直接贴上去）----------
+        const bgCanvas = document.createElement("canvas");
+        bgCanvas.width = canvas.width;
+        bgCanvas.height = canvas.height;
+
+        (function buildBackground() {
+            const bg = bgCanvas.getContext("2d");
+            const W = bgCanvas.width;
+            const H = bgCanvas.height;
+
+            function rnd(a, b) { return a + Math.random() * (b - a); }
+
+            // ① 径向渐变底（中心亮、四周暗）
+            const grad = bg.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, W * 0.8);
+            grad.addColorStop(0,    "#241a3d");
+            grad.addColorStop(0.62, "#170f2c");
+            grad.addColorStop(1,    "#0a0616");
+            bg.fillStyle = grad;
+            bg.fillRect(0, 0, W, H);
+
+            // ② 星点
+            for (let i = 0; i < 150; i++) {
+                const x = rnd(0, W), y = rnd(0, H);
+                const r = rnd(0.3, 1.4);
+                bg.fillStyle = `rgba(255, 255, 255, ${rnd(0.2, 0.9)})`;
+                bg.beginPath();
+                bg.arc(x, y, r, 0, Math.PI * 2);
+                bg.fill();
+            }
+
+            // ③ 几颗四角闪光
+            for (let i = 0; i < 4; i++) {
+                const x = rnd(30, W - 30), y = rnd(30, H - 30), r = rnd(5, 9);
+                bg.fillStyle = `rgba(220, 210, 255, ${rnd(0.4, 0.75)})`;
+                bg.beginPath();
+                bg.moveTo(x, y - r);
+                bg.lineTo(x + r * 0.22, y - r * 0.22);
+                bg.lineTo(x + r, y);
+                bg.lineTo(x + r * 0.22, y + r * 0.22);
+                bg.lineTo(x, y + r);
+                bg.lineTo(x - r * 0.22, y + r * 0.22);
+                bg.lineTo(x - r, y);
+                bg.lineTo(x - r * 0.22, y - r * 0.22);
+                bg.closePath();
+                bg.fill();
+            }
+
+            // ④ 很淡的网格（+0.5 让 1 像素的线更清晰）
+            bg.strokeStyle = "rgba(190, 170, 255, 0.045)";
+            bg.lineWidth = 1;
+            for (let i = 1; i < GRID; i++) {
+                const p = i * CELL + 0.5;
+                bg.beginPath(); bg.moveTo(p, 0); bg.lineTo(p, H); bg.stroke();
+                bg.beginPath(); bg.moveTo(0, p); bg.lineTo(W, p); bg.stroke();
+            }
+        })();
+
 
         // ---------- 速度设置（三档完全一样）----------
         const START_DELAY = 300;        // 开局：每 300 毫秒走一步
@@ -138,6 +198,10 @@
         if (!LEVELS[level]) level = "normal";
 
         let snake, food, dir, score, gameOver, delay, walls, foodsEaten;
+
+        // 平滑动画用的两个变量
+        let prevSnake = [];         // 上一次移动前，蛇在哪
+        let moveTime = 0;           // 上一次移动发生在什么时刻
 
         // ---------- 排行榜：每个难度各存一份 ----------
         // 数据结构：{ easy: [...], normal: [...], hard: [...] }
@@ -236,6 +300,7 @@
             foodsEaten = 0;
             gameOver = false;
             delay = START_DELAY;            // 三档开局速度一样
+            prevSnake = [];                 // 清掉上一局的动画残留
             scoreEl.textContent = score;
             buildWalls();
             randomFood();
@@ -276,15 +341,51 @@
         }
 
 
-        function drawCell(x, y, color, radius) {
+        function drawCell(gx, gy, color, radius, scale) {
             if (radius === undefined) radius = 6;
-            const px = x * CELL + 1;
-            const py = y * CELL + 1;
-            const size = CELL - 2;
+            if (scale === undefined) scale = 1;
+
+            const size = (CELL - 2) * scale;
+            const px = gx * CELL + CELL / 2 - size / 2;    // 以格子中心对齐
+            const py = gy * CELL + CELL / 2 - size / 2;
 
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.roundRect(px, py, size, size, radius);
+            ctx.fill();
+        }
+
+
+        // ---------- 画一只二次元大眼睛（含两个高光）----------
+        function drawAnimeEye(ctx, ex, ey) {
+            // 眼白
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.ellipse(ex, ey, 3.2, 3.7, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 虹膜
+            ctx.fillStyle = "#1f6b52";
+            ctx.beginPath();
+            ctx.ellipse(ex, ey + 0.4, 2.5, 2.9, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 瞳孔
+            ctx.fillStyle = "#0b2e24";
+            ctx.beginPath();
+            ctx.ellipse(ex, ey + 0.5, 1.25, 1.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // ✨ 高光 1：大的，偏左上
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.arc(ex - 1.0, ey - 1.4, 1.1, 0, Math.PI * 2);
+            ctx.fill();
+
+            // ✨ 高光 2：小的，偏右下
+            ctx.fillStyle = "rgba(255,255,255,0.85)";
+            ctx.beginPath();
+            ctx.arc(ex + 0.9, ey + 1.3, 0.6, 0, Math.PI * 2);
             ctx.fill();
         }
 
@@ -320,36 +421,153 @@
         }
 
 
-        function draw() {
-            ctx.fillStyle = "#16213e";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        function draw(progress) {
+            // progress：0 = 刚开始走，1 = 走完这一格
+            if (progress === undefined) progress = 1;
+
+            ctx.drawImage(bgCanvas, 0, 0);        // 直接贴上预渲染好的背景
 
             // 障碍物
             for (let i = 0; i < walls.length; i++) {
-                drawCell(walls[i].x, walls[i].y, "#2a3f5f", 4);
+                drawCell(walls[i].x, walls[i].y, "#3d3160", 4);
             }
 
-            // 食物：发光
-            ctx.shadowColor = "#e94560";
-            ctx.shadowBlur = 18;
-            drawCell(food.x, food.y, "#e94560", 10);
-            ctx.shadowBlur = 0;
+            // ---------- 食物：小苹果 🍎 ----------
+            const fx0 = food.x * CELL + CELL / 2;
+            const fy0 = food.y * CELL + CELL / 2;
 
-            // 蛇身
+            ctx.save();                       // 存个档（等下 restore 恢复）
+            ctx.shadowColor = "#ff5566";
+            ctx.shadowBlur = 14;
+            ctx.font = "19px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("🍎", fx0, fy0 + 1);
+            ctx.restore();                    // 恢复画笔设置
+
+            // ---------- 算出蛇每一节"现在显示在哪" ----------
+            const pos = [];
+
             for (let i = 0; i < snake.length; i++) {
-                const t = i / snake.length;
-                const lightness = 55 - t * 25;
-                drawCell(snake[i].x, snake[i].y, `hsl(160, 60%, ${lightness}%)`, 6);
+                const to = snake[i];
+                const from = prevSnake[i] || to;      // 新长出来的一节：原地不动
+
+                let x, y;
+
+                // 穿墙了？距离超过 1 格 → 直接瞬移，不做插值
+                if (Math.abs(to.x - from.x) > 1 || Math.abs(to.y - from.y) > 1) {
+                    x = to.x;
+                    y = to.y;
+                } else {
+                    // 插值：从 from 往 to 走了 progress 那么远
+                    x = from.x + (to.x - from.x) * progress;
+                    y = from.y + (to.y - from.y) * progress;
+                }
+
+                pos.push({ x: x, y: y });
             }
 
-            // 蛇眼睛
-            const head = snake[0];
-            const cx = head.x * CELL + CELL / 2;
-            const cy = head.y * CELL + CELL / 2;
-            const ox = dir.x * 3, oy = dir.y * 3;
-            const px = -dir.y * 4, py = dir.x * 4;
-            drawDot(cx + ox + px, cy + oy + py, 2.5, "#0f3460");
-            drawDot(cx + ox - px, cy + oy - py, 2.5, "#0f3460");
+            // ---------- 蛇身：一整条连续的"管子" ----------
+            const bw = CELL - 3;                   // 管子粗细
+
+            const headPx = pos[0].x * CELL + CELL / 2;
+            const headPy = pos[0].y * CELL + CELL / 2;
+            const tailPx = pos[pos.length - 1].x * CELL + CELL / 2;
+            const tailPy = pos[pos.length - 1].y * CELL + CELL / 2;
+
+            // 薄荷绿糖果渐变（二次元配色）
+            const bodyGrad = ctx.createLinearGradient(headPx, headPy, tailPx, tailPy);
+            bodyGrad.addColorStop(0, "#8ef5c4");
+            bodyGrad.addColorStop(1, "#3fc48d");
+
+            ctx.strokeStyle = bodyGrad;
+            ctx.lineWidth = bw;
+            ctx.lineCap = "round";          // 两端圆头
+            ctx.lineJoin = "round";         // 拐弯圆角 ← 关键！转弯处不会有尖角
+
+            // 一条完整路径：只在"穿墙"的地方断开
+            ctx.beginPath();
+            ctx.moveTo(headPx, headPy);
+
+            for (let i = 1; i < pos.length; i++) {
+                const a = pos[i - 1];
+                const b = pos[i];
+
+                if (Math.abs(a.x - b.x) > 1 || Math.abs(a.y - b.y) > 1) {
+                    ctx.stroke();                     // 断开
+                    ctx.beginPath();
+                    ctx.moveTo(b.x * CELL + CELL / 2, b.y * CELL + CELL / 2);
+                } else {
+                    ctx.lineTo(b.x * CELL + CELL / 2, b.y * CELL + CELL / 2);
+                }
+            }
+
+            ctx.stroke();
+
+            // ---------- 蛇头 ----------
+            const hx = pos[0].x * CELL + CELL / 2;
+            const hy = pos[0].y * CELL + CELL / 2;
+
+            const headR = bw / 2 + 1.2;
+
+            ctx.fillStyle = "#a8ffd6";
+            ctx.beginPath();
+            ctx.arc(hx, hy, headR, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 头上的柔和高光
+            ctx.fillStyle = "rgba(255,255,255,0.30)";
+            ctx.beginPath();
+            ctx.ellipse(hx - dir.x * 2, hy - dir.y * 2,
+                        headR * 0.52, headR * 0.34,
+                        Math.atan2(dir.y, dir.x), 0, Math.PI * 2);
+            ctx.fill();
+
+            // ---------- 蛇脸 ----------
+
+            // 脸的朝向 = "头 → 脖子"的实际方向
+            // 这样转向时，脸会跟着身体慢慢转过去，而不是"啪"一下扭头
+            let fdx = pos[0].x - pos[1].x;
+            let fdy = pos[0].y - pos[1].y;
+
+            const flen = Math.sqrt(fdx * fdx + fdy * fdy);
+
+            if (flen < 0.001) {
+                fdx = dir.x;                      // 头和脖子重合了（极端情况）
+                fdy = dir.y;
+            } else {
+                fdx = fdx / flen;                 // 归一化成"单位方向"
+                fdy = fdy / flen;
+            }
+
+            const px = -fdy;                      // 侧向单位向量
+            const py = fdx;
+
+            // 两眼的位置
+            const eyeFwd  = headR * 0.18;
+            const eyeSide = headR * 0.44;
+
+            const ex1 = hx + fdx * eyeFwd + px * eyeSide;
+            const ey1 = hy + fdy * eyeFwd + py * eyeSide;
+            const ex2 = hx + fdx * eyeFwd - px * eyeSide;
+            const ey2 = hy + fdy * eyeFwd - py * eyeSide;
+
+            // 腮红（先画，会被眼睛盖住一点点）
+            const cheekOff = headR * 0.70;
+
+            ctx.fillStyle = "rgba(255,150,180,0.6)";
+            ctx.beginPath();
+            ctx.ellipse(hx + px * cheekOff - fdx * 2, hy + py * cheekOff - fdy * 2,
+                        2.5, 1.7, Math.atan2(fdy, fdx), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(hx - px * cheekOff - fdx * 2, hy - py * cheekOff - fdy * 2,
+                        2.5, 1.7, Math.atan2(fdy, fdx), 0, Math.PI * 2);
+            ctx.fill();
+
+            // ✨ 两只大眼睛
+            drawAnimeEye(ctx, ex1, ey1);
+            drawAnimeEye(ctx, ex2, ey2);
 
             // 结束遮罩
             if (gameOver) {
@@ -376,7 +594,7 @@
 
                 const list = currentScores();
 
-                ctx.fillStyle = "#4ecca3";
+                ctx.fillStyle = "#c9a6ff";
                 ctx.font = "bold 20px sans-serif";
                 ctx.fillText("🏆 " + LEVELS[level].name + "难度 · 排行榜", W / 2, 172);
 
@@ -446,6 +664,13 @@
                     die();
                     return;
                 }
+            }
+
+            // 记录移动前的位置（画面插值要用）
+            // ⚠️ 必须"拷贝"，不能直接 = snake（那是同一个数组！）
+            prevSnake = [];
+            for (let i = 0; i < snake.length; i++) {
+                prevSnake.push({ x: snake[i].x, y: snake[i].y });
             }
 
             snake.unshift(newHead);
@@ -532,17 +757,31 @@
         }, { passive: true });
 
 
-        // ---------- 游戏循环 ----------
+        // ---------- 两条线：逻辑按节奏走，画面每秒 60 次 ----------
+
+        // 【逻辑】每隔 delay 毫秒走一格
         function tick() {
             move();
-            draw();
+            moveTime = performance.now();       // 记下这一格是"什么时候开始的"
             setTimeout(tick, delay);
+        }
+
+        // 【画面】浏览器每一帧调一次，画出"走到一半"的样子
+        function render() {
+            const elapsed = performance.now() - moveTime;
+            let progress = elapsed / delay;
+
+            if (progress > 1) progress = 1;      // 最多走到 100%
+
+            draw(progress);
+            requestAnimationFrame(render);       // 下一帧再叫我
         }
 
         markLevelButtons();
         refreshBest();
         reset();
         tick();
+        render();
     </script>
 
 </body>

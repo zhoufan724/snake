@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐍 挑一条蛇</title>
+    <style>
+        body {
+            font-family: -apple-system, "PingFang SC", sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            text-align: center;
+            padding: 24px 14px 40px;
+            margin: 0;
+        }
+        h1 { font-size: 24px; margin: 0 0 6px; }
+        .note { color: #888; font-size: 14px; margin: 0 0 22px; }
+        .item { margin-bottom: 18px; }
+        .label {
+            font-size: 15px;
+            color: #4ecca3;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+        canvas {
+            width: min(460px, 92vw);
+            height: auto;
+            background: #16213e;
+            border: 2px solid #0f3460;
+            border-radius: 12px;
+        }
+        .hint { color: #f0c040; font-size: 15px; margin-top: 26px; }
+    </style>
+</head>
+<body>
+
+    <h1>🐍 挑一条你喜欢的蛇</h1>
+    <p class="note">六种都是"一条连续的管子"，可以直接放进游戏里</p>
+
+    <div id="board"></div>
+
+    <p class="hint">看好了告诉我号码：1、2、3、4、5 还是 6？</p>
+
+
+    <script>
+        // ---------- 蛇的形状（一条 S 形，9 节）----------
+        const PATH = [
+            { x: 10, y: 0 }, { x: 9, y: 0 }, { x: 8, y: 0 }, { x: 7, y: 0 },
+            { x: 7,  y: 1 }, { x: 6, y: 1 }, { x: 5, y: 1 }, { x: 4, y: 1 }, { x: 3, y: 1 }
+        ];
+
+        const CELL = 30;
+        const OFX = 34;
+        const OFY = 14;
+
+
+        // ---------- 六种风格 ----------
+        const STYLES = [
+            {
+                name: "1. 经典绿（就是现在这个）",
+                body: function (t) { return `hsl(155, 68%, ${62 - t * 28}%)`; },
+                head: "#8bf0c4"
+            },
+            {
+                name: "2. 彩虹蛇",
+                body: function (t) { return `hsl(${t * 320}, 78%, 62%)`; },
+                head: "hsl(0, 78%, 62%)"
+            },
+            {
+                name: "3. 斑点蛇（浅绿底 + 深绿点）",
+                body: function (t) { return `hsl(145, 45%, ${66 - t * 12}%)`; },
+                head: "#b6f5d8",
+                decorate: function (ctx, pts) {
+                    for (let i = 1; i < pts.length; i += 2) {
+                        ctx.fillStyle = "rgba(20, 90, 60, 0.55)";
+                        ctx.beginPath();
+                        ctx.arc(pts[i].x, pts[i].y, 3.6, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            },
+            {
+                name: "4. 条纹蛇（深浅相间）",
+                body: function (t, i) { return (i % 2 === 0) ? "hsl(150, 65%, 62%)" : "hsl(150, 60%, 38%)"; },
+                head: "#9df3cb"
+            },
+            {
+                name: "5. 蓝精灵蛇",
+                body: function (t) { return `hsl(210, 72%, ${64 - t * 26}%)`; },
+                head: "#a8d8ff"
+            },
+            {
+                name: "6. 粉红可爱蛇",
+                body: function (t) { return `hsl(335, 76%, ${70 - t * 26}%)`; },
+                head: "#ffc2d6"
+            },
+        ];
+
+
+        // ---------- 画一条蛇 ----------
+        function drawSnake(canvas, style) {
+            const ctx = canvas.getContext("2d");
+            const W = canvas.width, H = canvas.height;
+
+            ctx.fillStyle = "#16213e";
+            ctx.fillRect(0, 0, W, H);
+
+            // 格子坐标 → 像素坐标
+            const pts = PATH.map(function (p) {
+                return {
+                    x: p.x * CELL + OFX,
+                    y: p.y * CELL + OFY + 22
+                };
+            });
+
+            const bw = CELL - 5;
+
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.lineWidth = bw;
+
+            // 身体：从尾巴往头一段段画（颜色可以按段变化）
+            for (let i = pts.length - 1; i >= 1; i--) {
+                const t = i / (pts.length - 1);
+                ctx.strokeStyle = style.body(t, i);
+                ctx.beginPath();
+                ctx.moveTo(pts[i].x, pts[i].y);
+                ctx.lineTo(pts[i - 1].x, pts[i - 1].y);
+                ctx.stroke();
+            }
+
+            // 装饰（斑点等）
+            if (style.decorate) style.decorate(ctx, pts);
+
+            // 头
+            const head = pts[0];
+            ctx.fillStyle = style.head;
+            ctx.beginPath();
+            ctx.arc(head.x, head.y, bw / 2 + 1.8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 脸（头朝右走）
+            const fdx = 1, fdy = 0;
+            const fx = head.x + fdx * 1.5;
+            const fy = head.y + fdy * 1.5;
+            const px = -fdy * 4.5;
+            const py = fdx * 4.5;
+
+            // 腮红
+            ctx.fillStyle = "rgba(255,120,150,0.55)";
+            ctx.beginPath();
+            ctx.arc(fx + px * 1.55 - fdx * 2, fy + py * 1.55 - fdy * 2, 2.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(fx - px * 1.55 - fdx * 2, fy - py * 1.55 - fdy * 2, 2.6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 眼白
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.arc(fx + px, fy + py, 4.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(fx - px, fy - py, 4.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 瞳孔
+            ctx.fillStyle = "#0d1b2a";
+            ctx.beginPath();
+            ctx.arc(fx + px + fdx * 1.4, fy + py + fdy * 1.4, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(fx - px + fdx * 1.4, fy - py + fdy * 1.4, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+
+        // ---------- 生成页面 ----------
+        const board = document.getElementById("board");
+
+        STYLES.forEach(function (style) {
+            const item = document.createElement("div");
+            item.className = "item";
+
+            const label = document.createElement("div");
+            label.className = "label";
+            label.textContent = style.name;
+
+            const canvas = document.createElement("canvas");
+            canvas.width = 460;
+            canvas.height = 110;
+
+            item.appendChild(label);
+            item.appendChild(canvas);
+            board.appendChild(item);
+
+            drawSnake(canvas, style);
+        });
+    </script>
+
+</body>
+</html>

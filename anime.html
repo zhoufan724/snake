@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐍 二次元萌蛇 · 挑一条</title>
+    <style>
+        body {
+            font-family: -apple-system, "PingFang SC", sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            text-align: center;
+            padding: 24px 14px 40px;
+            margin: 0;
+        }
+        h1 { font-size: 24px; margin: 0 0 6px; }
+        .note { color: #888; font-size: 14px; margin: 0 0 22px; }
+        .item { margin-bottom: 18px; }
+        .label {
+            font-size: 15px;
+            color: #ff9ec4;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+        canvas {
+            width: min(460px, 92vw);
+            height: auto;
+            background: #16213e;
+            border: 2px solid #0f3460;
+            border-radius: 14px;
+        }
+        .hint { color: #ff9ec4; font-size: 15px; margin-top: 26px; }
+    </style>
+</head>
+<body>
+
+    <h1>🐍 二次元萌蛇 · 挑一条</h1>
+    <p class="note">重点是大眼睛里的两个高光点 ✨</p>
+
+    <div id="board"></div>
+
+    <p class="hint">告诉我号码吧～ 1 ~ 6</p>
+
+
+    <script>
+        const PATH = [
+            { x: 10, y: 0 }, { x: 9, y: 0 }, { x: 8, y: 0 }, { x: 7, y: 0 },
+            { x: 7,  y: 1 }, { x: 6, y: 1 }, { x: 5, y: 1 }, { x: 4, y: 1 }, { x: 3, y: 1 }
+        ];
+
+        const CELL = 30;
+        const OFX = 44;
+        const OFY = 10;
+
+        // 蛇头比身体半径大多少（想调头的大小，改这一个数字就行）
+        const HEAD_EXTRA = 1.2;
+
+
+        // ---------- 六种二次元配色 ----------
+        const STYLES = [
+            {
+                name: "1. 薄荷萌蛇（绿）",
+                body: "#8ef5c4", tail: "#3fc48d",
+                head: "#a8ffd6",
+                iris: "#1f6b52", pupil: "#0b2e24",
+                blush: "rgba(255, 150, 180, 0.6)"
+            },
+            {
+                name: "2. 樱花萌蛇（粉）",
+                body: "#ffb8d4", tail: "#ff7aae",
+                head: "#ffd0e2",
+                iris: "#8c2f5a", pupil: "#3d0f26",
+                blush: "rgba(255, 120, 160, 0.55)"
+            },
+            {
+                name: "3. 天空萌蛇（蓝）",
+                body: "#9fd8ff", tail: "#4aa8f0",
+                head: "#c2e7ff",
+                iris: "#1d4f8c", pupil: "#0a2340",
+                blush: "rgba(255, 150, 180, 0.55)"
+            },
+            {
+                name: "4. 奶油萌蛇（黄）",
+                body: "#ffe9a8", tail: "#f0b73f",
+                head: "#fff4cd",
+                iris: "#8c6118", pupil: "#3d2807",
+                blush: "rgba(255, 140, 140, 0.5)"
+            },
+            {
+                name: "5. 紫罗兰萌蛇（紫）",
+                body: "#cdb4ff", tail: "#8b5cf6",
+                head: "#e2d4ff",
+                iris: "#4c2c8c", pupil: "#1f0f40",
+                blush: "rgba(255, 150, 200, 0.55)"
+            },
+            {
+                name: "6. 午夜萌蛇（黑）",
+                body: "#5d6b8a", tail: "#2b3450",
+                head: "#7b8aab",
+                iris: "#ff9ec4", pupil: "#3d0f26",
+                blush: "rgba(255, 120, 160, 0.45)"
+            },
+        ];
+
+
+        // ---------- 画一只二次元的大眼睛 ----------
+        function drawEye(ctx, ex, ey, style) {
+            // 眼白
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.ellipse(ex, ey, 3.7, 4.3, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 虹膜
+            ctx.fillStyle = style.iris;
+            ctx.beginPath();
+            ctx.ellipse(ex, ey + 0.4, 2.9, 3.4, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 瞳孔
+            ctx.fillStyle = style.pupil;
+            ctx.beginPath();
+            ctx.ellipse(ex, ey + 0.55, 1.45, 1.75, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // ✨ 高光 1：大的，在左上方
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.arc(ex - 1.2, ey - 1.6, 1.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // ✨ 高光 2：小的，在右下方
+            ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+            ctx.beginPath();
+            ctx.arc(ex + 1.1, ey + 1.5, 0.7, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+
+        // ---------- 画一条萌蛇 ----------
+        function drawSnake(canvas, style) {
+            const ctx = canvas.getContext("2d");
+            ctx.fillStyle = "#16213e";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const pts = PATH.map(function (p) {
+                return { x: p.x * CELL + OFX, y: p.y * CELL + OFY + 30 };
+            });
+
+            const bw = CELL - 6;
+
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            // 身体：从头到尾一个渐变
+            const grad = ctx.createLinearGradient(
+                pts[0].x, pts[0].y,
+                pts[pts.length - 1].x, pts[pts.length - 1].y
+            );
+            grad.addColorStop(0, style.body);
+            grad.addColorStop(1, style.tail);
+
+            ctx.lineWidth = bw;
+            ctx.strokeStyle = grad;
+            ctx.beginPath();
+            ctx.moveTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+            for (let i = pts.length - 2; i >= 0; i--) ctx.lineTo(pts[i].x, pts[i].y);
+            ctx.stroke();
+
+            // 身体上的一道柔和高光（可爱风）
+            ctx.lineWidth = bw * 0.26;
+            ctx.strokeStyle = "rgba(255,255,255,0.28)";
+            ctx.beginPath();
+            ctx.moveTo(pts[pts.length - 1].x, pts[pts.length - 1].y - bw * 0.22);
+            for (let i = pts.length - 2; i >= 0; i--) {
+                ctx.lineTo(pts[i].x, pts[i].y - bw * 0.22);
+            }
+            ctx.stroke();
+
+            // ---------- 头（比身体大一点，Q 版）----------
+            const head = pts[0];
+            const fdx = pts[0].x - pts[1].x;
+            const fdy = pts[0].y - pts[1].y;
+            const flen = Math.sqrt(fdx * fdx + fdy * fdy);
+            const ux = fdx / flen, uy = fdy / flen;        // 单位方向
+            const nx = -uy, ny = ux;                       // 垂直方向
+
+            const headR = bw / 2 + HEAD_EXTRA;
+
+            ctx.fillStyle = style.head;
+            ctx.beginPath();
+            ctx.arc(head.x, head.y, headR, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 头上的柔和高光
+            ctx.fillStyle = "rgba(255,255,255,0.30)";
+            ctx.beginPath();
+            ctx.ellipse(head.x - ux * 2, head.y - uy * 2, headR * 0.52, headR * 0.34,
+                        Math.atan2(uy, ux), 0, Math.PI * 2);
+            ctx.fill();
+
+            // ---------- 腮红（先画，在眼睛下面）----------
+            const cheekOff = headR * 0.70;
+
+            ctx.fillStyle = style.blush;
+            ctx.beginPath();
+            ctx.ellipse(head.x + nx * cheekOff - ux * 2, head.y + ny * cheekOff - uy * 2,
+                        2.9, 2.0, Math.atan2(uy, ux), 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.ellipse(head.x - nx * cheekOff - ux * 2, head.y - ny * cheekOff - uy * 2,
+                        2.9, 2.0, Math.atan2(uy, ux), 0, Math.PI * 2);
+            ctx.fill();
+
+            // ---------- 两只大眼睛 ----------
+            const eyeFwd = headR * 0.18;      // 眼睛稍微朝前
+            const eyeSide = headR * 0.44;     // 两眼分开的距离
+
+            drawEye(ctx, head.x + ux * eyeFwd + nx * eyeSide,
+                          head.y + uy * eyeFwd + ny * eyeSide, style);
+
+            drawEye(ctx, head.x + ux * eyeFwd - nx * eyeSide,
+                          head.y + uy * eyeFwd - ny * eyeSide, style);
+        }
+
+
+        const board = document.getElementById("board");
+
+        STYLES.forEach(function (style) {
+            const item = document.createElement("div");
+            item.className = "item";
+
+            const label = document.createElement("div");
+            label.className = "label";
+            label.textContent = style.name;
+
+            const canvas = document.createElement("canvas");
+            canvas.width = 460;
+            canvas.height = 120;
+
+            item.appendChild(label);
+            item.appendChild(canvas);
+            board.appendChild(item);
+
+            drawSnake(canvas, style);
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎨 挑一个背景配色</title>
+    <style>
+        body {
+            font-family: -apple-system, "PingFang SC", sans-serif;
+            background: #0a0c12;
+            color: #eee;
+            text-align: center;
+            padding: 24px 14px 40px;
+            margin: 0;
+        }
+        h1 { font-size: 24px; margin: 0 0 6px; }
+        .note { color: #888; font-size: 14px; margin: 0 0 24px; }
+        .grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 26px;
+            justify-content: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .item { }
+        .label {
+            font-size: 14px;
+            color: #d8b365;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        canvas {
+            border-radius: 14px;
+            width: 280px;
+            height: auto;
+        }
+        .hint { color: #d8b365; font-size: 15px; margin-top: 34px; }
+    </style>
+</head>
+<body>
+
+    <h1>🎨 挑一个背景配色</h1>
+    <p class="note">每个背景里都放了一条同样的蛇和一个苹果 —— 看看哪个最衬托它们</p>
+
+    <div class="grid" id="board"></div>
+
+    <p class="hint">告诉我号码吧：1 ~ 6</p>
+
+
+    <script>
+        const THEMES = [
+            {
+                name: "1. 深海蓝（现在这个）",
+                c1: "#1f2e54", c2: "#16213e", c3: "#0c1220",
+                grid: "rgba(120,170,255,0.055)",
+                border: "#0f3460", glow: "rgba(78,204,163,0.18)"
+            },
+            {
+                name: "2. 午夜紫",
+                c1: "#2c2050", c2: "#1e1638", c3: "#110b1f",
+                grid: "rgba(180,140,255,0.06)",
+                border: "#3a2a60", glow: "rgba(160,120,255,0.22)"
+            },
+            {
+                name: "3. 松林绿",
+                c1: "#1b3d31", c2: "#122a21", c3: "#081711",
+                grid: "rgba(120,255,190,0.05)",
+                border: "#1d4a39", glow: "rgba(78,204,163,0.22)"
+            },
+            {
+                name: "4. 酒红",
+                c1: "#40212c", c2: "#2b1620", c3: "#170a11",
+                grid: "rgba(255,140,170,0.055)",
+                border: "#5a2b3c", glow: "rgba(233,69,96,0.22)"
+            },
+            {
+                name: "5. 暖棕",
+                c1: "#3f2f20", c2: "#2a2015", c3: "#16100a",
+                grid: "rgba(255,210,150,0.05)",
+                border: "#57402a", glow: "rgba(220,170,110,0.20)"
+            },
+            {
+                name: "6. 石墨灰",
+                c1: "#2d323c", c2: "#1f232b", c3: "#11141a",
+                grid: "rgba(200,215,255,0.05)",
+                border: "#3a4150", glow: "rgba(150,170,200,0.18)"
+            },
+        ];
+
+        const CELL = 20;
+
+
+        // ---------- 画一个预览（背景 + 蛇 + 苹果）----------
+        function drawPreview(canvas, theme) {
+            const ctx = canvas.getContext("2d");
+            const W = canvas.width, H = canvas.height;
+            const GRID = W / CELL;
+
+            // ① 径向渐变背景
+            const grad = ctx.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, W * 0.78);
+            grad.addColorStop(0,    theme.c1);
+            grad.addColorStop(0.62, theme.c2);
+            grad.addColorStop(1,    theme.c3);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+
+            // ② 网格
+            ctx.strokeStyle = theme.grid;
+            ctx.lineWidth = 1;
+            for (let i = 1; i < GRID; i++) {
+                const p = i * CELL + 0.5;
+                ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, H); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(W, p); ctx.stroke();
+            }
+
+            // ③ 示例蛇（一小段 L 形）
+            const path = [[6, 8], [5, 8], [4, 8], [3, 8], [3, 9], [2, 9]];
+            const pts = path.map(function (p) {
+                return { x: p[0] * CELL + CELL / 2, y: p[1] * CELL + CELL / 2 };
+            });
+
+            const bw = CELL - 3;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            const sg = ctx.createLinearGradient(
+                pts[0].x, pts[0].y, pts[pts.length - 1].x, pts[pts.length - 1].y
+            );
+            sg.addColorStop(0, "hsl(155, 68%, 62%)");
+            sg.addColorStop(1, "hsl(155, 68%, 34%)");
+
+            ctx.strokeStyle = sg;
+            ctx.lineWidth = bw;
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+            ctx.stroke();
+
+            // 蛇头
+            const head = pts[0];
+            ctx.fillStyle = "#8bf0c4";
+            ctx.beginPath();
+            ctx.arc(head.x, head.y, bw / 2 + 1.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 眼睛
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath(); ctx.arc(head.x + 1, head.y - 4, 2.6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(head.x + 1, head.y + 4, 2.6, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = "#0d1b2a";
+            ctx.beginPath(); ctx.arc(head.x + 2, head.y - 4, 1.4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(head.x + 2, head.y + 4, 1.4, 0, Math.PI * 2); ctx.fill();
+
+            // ④ 苹果
+            ctx.save();
+            ctx.shadowColor = "#ff5566";
+            ctx.shadowBlur = 14;
+            ctx.font = "19px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("🍎", 11 * CELL + CELL / 2, 8 * CELL + CELL / 2 + 1);
+            ctx.restore();
+        }
+
+
+        const board = document.getElementById("board");
+
+        THEMES.forEach(function (theme) {
+            const item = document.createElement("div");
+            item.className = "item";
+
+            const label = document.createElement("div");
+            label.className = "label";
+            label.textContent = theme.name;
+
+            const canvas = document.createElement("canvas");
+            canvas.width = 280;
+            canvas.height = 280;
+            canvas.style.border = "3px solid " + theme.border;
+            canvas.style.boxShadow =
+                "0 0 26px " + theme.glow + ", inset 0 0 30px rgba(0,0,0,0.5)";
+
+            item.appendChild(label);
+            item.appendChild(canvas);
+            board.appendChild(item);
+
+            drawPreview(canvas, theme);
+        });
+    </script>
+
+</body>
+</html>
