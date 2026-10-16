@@ -18,18 +18,26 @@
             user-select: none;
         }
         h1 { font-size: 22px; margin: 2px 0 6px; }
-        .score {
-            font-size: 17px;
-            margin: 0 0 8px;
-            color: #888;
-        }
+        .score { font-size: 17px; margin: 0 0 8px; color: #888; }
         .score b { color: #4ecca3; font-size: 24px; }
-        .score i {
-            font-style: normal;
-            color: #f0c040;
-            font-weight: bold;
-            font-size: 20px;
+        .score i { font-style: normal; color: #f0c040; font-weight: bold; font-size: 20px; }
+
+        .speedbar { display: flex; gap: 6px; justify-content: center; margin: 0 0 6px; }
+        .spd {
+            font-family: inherit;
+            font-size: 12px;
+            padding: 5px 10px;
+            color: #888;
+            background: #16213e;
+            border: 2px solid #0f3460;
+            border-radius: 20px;
+            cursor: pointer;
+            touch-action: none;
         }
+        .spd.on { color: #1a1a2e; background: #4ecca3; border-color: #4ecca3; font-weight: bold; }
+
+        .rule { font-size: 12px; color: #7a7a8c; margin: 0 0 8px; min-height: 16px; }
+
         canvas {
             width: min(400px, 82vw);
             height: auto;
@@ -39,30 +47,6 @@
             box-shadow: 0 0 40px rgba(78, 204, 163, 0.15);
             touch-action: none;
         }
-        .speedbar {
-            display: flex;
-            gap: 8px;
-            justify-content: center;
-            margin: 0 0 10px;
-        }
-        .spd {
-            font-family: inherit;
-            font-size: 14px;
-            padding: 5px 14px;
-            color: #888;
-            background: #16213e;
-            border: 2px solid #0f3460;
-            border-radius: 20px;
-            cursor: pointer;
-            touch-action: none;
-        }
-        .spd.on {
-            color: #1a1a2e;
-            background: #4ecca3;
-            border-color: #4ecca3;
-            font-weight: bold;
-        }
-
         .dpad {
             display: grid;
             grid-template-areas:
@@ -76,7 +60,7 @@
             margin: 12px auto 0;
         }
         .pad-btn {
-            font-size: 22px;
+            font-size: 20px;
             color: #4ecca3;
             background: #16213e;
             border: 2px solid #0f3460;
@@ -90,6 +74,7 @@
         .pad-left  { grid-area: left; }
         .pad-right { grid-area: right; }
         .pad-down  { grid-area: down; }
+
         .tip { color: #666; font-size: 12px; margin-top: 12px; }
         .desktop-only { display: inline; }
         @media (hover: none) { .desktop-only { display: none; } }
@@ -106,10 +91,12 @@
     </p>
 
     <div class="speedbar">
-        <button class="spd" data-delay="400">🐢 慢</button>
-        <button class="spd" data-delay="250">🐇 中</button>
-        <button class="spd" data-delay="150">⚡ 快</button>
+        <button class="spd" data-level="easy">🟢 简单</button>
+        <button class="spd" data-level="normal">🟡 中等</button>
+        <button class="spd" data-level="hard">🔴 困难</button>
     </div>
+
+    <p class="rule" id="rule"></p>
 
     <canvas id="game" width="400" height="400"></canvas>
 
@@ -120,7 +107,7 @@
         <button class="pad-btn pad-down"  data-x="0"  data-y="1">▼</button>
     </div>
 
-    <p class="tip">v0.12 — 手机上可直接在画面里滑动手指控制</p>
+    <p class="tip">v0.16 — 三档开局速度一样，每吃 3 个食物加快一点</p>
 
 
     <script>
@@ -128,44 +115,38 @@
         const ctx = canvas.getContext("2d");
         const scoreEl = document.getElementById("score");
         const bestEl = document.getElementById("best");
+        const ruleEl = document.getElementById("rule");
 
         const CELL = 20;
         const GRID = canvas.width / CELL;
 
-        let snake, food, dir, score, gameOver, delay;
+        // ---------- 速度设置（三档完全一样）----------
+        const START_DELAY = 300;        // 开局：每 300 毫秒走一步
+        const MIN_DELAY = 90;           // 最快：90 毫秒一步（很刺激）
+        const SPEED_UP_EVERY = 3;       // 每吃 3 个食物，加速一次
+        const SPEED_UP_STEP = 12;       // 每次加快 12 毫秒
 
-        // 基础速度（毫秒），越小越快。存在浏览器里，下次打开还记得
-        let baseDelay = Number(localStorage.getItem("snakeDelay") || 250);
+        // ---------- 三档难度：区别只在"规则"，不在速度 ----------
+        const LEVELS = {
+            easy:   { rule: "🟢 简单：可以穿墙，撞到自己才会结束" },
+            normal: { rule: "🟡 中等：撞墙或撞自己都会结束" },
+            hard:   { rule: "🔴 困难：有障碍物，撞到就结束" },
+        };
 
-        // ---------- 排行榜（存在浏览器里，最多留 5 条）----------
-        // localStorage 只能存"字符串"，所以用 JSON 转换
+        // 读取上次选的难度（旧版本的值不认识就用"中等"）
+        let level = localStorage.getItem("snakeLevel") || "normal";
+        if (!LEVELS[level]) level = "normal";
+
+        let snake, food, dir, score, gameOver, delay, walls, foodsEaten;
+
+        // ---------- 排行榜 ----------
         let scores = JSON.parse(localStorage.getItem("snakeScores") || "[]");
-
-        // 数组是降序排的，第一个就是最高分
         let best = 0;
         if (scores.length > 0) best = scores[0];
         bestEl.textContent = best;
 
 
-        // ---------- 把一个新成绩记进排行榜 ----------
-        function saveScore(value) {
-            scores.push(value);
-
-            // 从大到小排
-            scores.sort(function (a, b) {
-                return b - a;
-            });
-
-            scores = scores.slice(0, 5);        // 只留前 5
-
-            localStorage.setItem("snakeScores", JSON.stringify(scores));
-
-            best = scores[0];
-            bestEl.textContent = best;
-        }
-
-
-        // ---------- 🔊 音效（用代码合成，不用下载音频文件）----------
+        // ---------- 音效 ----------
         let audioCtx = null;
 
         function beep(freq, duration) {
@@ -179,7 +160,6 @@
 
             osc.frequency.value = freq;
 
-            // 音量从 0.1 慢慢降到接近 0（避免"咔"的杂音）
             gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(
                 0.001, audioCtx.currentTime + duration / 1000
@@ -193,6 +173,34 @@
         }
 
 
+        // ---------- 记成绩 ----------
+        function saveScore(value) {
+            scores.push(value);
+            scores.sort(function (a, b) { return b - a; });
+            scores = scores.slice(0, 5);
+            localStorage.setItem("snakeScores", JSON.stringify(scores));
+            best = scores[0];
+            bestEl.textContent = best;
+        }
+
+
+        // ---------- 生成障碍物（只有困难模式有）----------
+        function buildWalls() {
+            if (level !== "hard") {
+                walls = [];
+                return;
+            }
+
+            // 四个角落里各一条横杠
+            walls = [
+                { x: 4,  y: 4 },  { x: 5,  y: 4 },  { x: 6,  y: 4 },
+                { x: 13, y: 4 },  { x: 14, y: 4 },  { x: 15, y: 4 },
+                { x: 4,  y: 15 }, { x: 5,  y: 15 }, { x: 6,  y: 15 },
+                { x: 13, y: 15 }, { x: 14, y: 15 }, { x: 15, y: 15 },
+            ];
+        }
+
+
         // ---------- 开始新一局 ----------
         function reset() {
             snake = [
@@ -202,12 +210,38 @@
             ];
             dir = { x: 1, y: 0 };
             score = 0;
+            foodsEaten = 0;
             gameOver = false;
-            delay = baseDelay;              // 恢复玩家选的速度
+            delay = START_DELAY;            // 三档开局速度一样
             scoreEl.textContent = score;
+            buildWalls();
             randomFood();
             draw();
         }
+
+
+        // ---------- 切换难度 ----------
+        function markLevelButtons() {
+            document.querySelectorAll(".spd").forEach(function (btn) {
+                if (btn.dataset.level === level) btn.classList.add("on");
+                else btn.classList.remove("on");
+            });
+            ruleEl.textContent = LEVELS[level].rule;
+        }
+
+        function setLevel(name) {
+            level = name;
+            localStorage.setItem("snakeLevel", name);
+            markLevelButtons();
+            reset();
+        }
+
+        document.querySelectorAll(".spd").forEach(function (btn) {
+            btn.addEventListener("pointerdown", function (event) {
+                event.preventDefault();
+                setLevel(btn.dataset.level);
+            });
+        });
 
 
         function setDir(nx, ny) {
@@ -239,19 +273,24 @@
         }
 
 
+        // ---------- 随机放食物（不能放在蛇身或障碍物上）----------
         function randomFood() {
-            let p, onSnake;
+            let p, blocked;
 
             do {
-                onSnake = false;
+                blocked = false;
                 p = {
                     x: Math.floor(Math.random() * GRID),
                     y: Math.floor(Math.random() * GRID),
                 };
+
                 for (let i = 0; i < snake.length; i++) {
-                    if (snake[i].x === p.x && snake[i].y === p.y) onSnake = true;
+                    if (snake[i].x === p.x && snake[i].y === p.y) blocked = true;
                 }
-            } while (onSnake);
+                for (let i = 0; i < walls.length; i++) {
+                    if (walls[i].x === p.x && walls[i].y === p.y) blocked = true;
+                }
+            } while (blocked);
 
             food = p;
         }
@@ -260,6 +299,11 @@
         function draw() {
             ctx.fillStyle = "#16213e";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 障碍物
+            for (let i = 0; i < walls.length; i++) {
+                drawCell(walls[i].x, walls[i].y, "#2a3f5f", 4);
+            }
 
             // 食物：发光
             ctx.shadowColor = "#e94560";
@@ -290,15 +334,12 @@
 
                 ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
                 ctx.fillRect(0, 0, W, H);
-
                 ctx.textAlign = "center";
 
-                // 标题
                 ctx.fillStyle = "#e94560";
                 ctx.font = "bold 34px sans-serif";
                 ctx.fillText("游戏结束", W / 2, 62);
 
-                // 本次得分
                 ctx.fillStyle = "#eee";
                 ctx.font = "20px sans-serif";
                 ctx.fillText("本次得分：" + score, W / 2, 102);
@@ -309,27 +350,31 @@
                     ctx.fillText("🏆 新纪录！", W / 2, 130);
                 }
 
-                // 排行榜
                 ctx.fillStyle = "#4ecca3";
                 ctx.font = "bold 20px sans-serif";
                 ctx.fillText("🏆 排行榜", W / 2, 176);
 
                 for (let i = 0; i < scores.length; i++) {
                     const y = 208 + i * 27;
-
-                    // 前三名用金色，其他用灰色
                     ctx.fillStyle = (i < 3) ? "#f0c040" : "#888";
                     ctx.font = (i < 3) ? "bold 19px sans-serif" : "17px sans-serif";
-
                     const medal = (i === 0) ? "🥇" : (i === 1) ? "🥈" : (i === 2) ? "🥉" : (i + 1) + ".";
                     ctx.fillText(medal + "  " + scores[i] + " 分", W / 2, y);
                 }
 
-                // 底部提示
                 ctx.fillStyle = "#666";
                 ctx.font = "14px sans-serif";
                 ctx.fillText("按空格或点画面重新开始", W / 2, H - 22);
             }
+        }
+
+
+        // ---------- 检查某个位置是不是障碍物 ----------
+        function isWall(x, y) {
+            for (let i = 0; i < walls.length; i++) {
+                if (walls[i].x === x && walls[i].y === y) return true;
+            }
+            return false;
         }
 
 
@@ -339,14 +384,31 @@
             const head = snake[0];
             const newHead = { x: head.x + dir.x, y: head.y + dir.y };
 
-            // 撞墙
-            if (newHead.x < 0 || newHead.x >= GRID ||
-                newHead.y < 0 || newHead.y >= GRID) {
+            // ---------- 撞墙 ----------
+            const outOfBounds =
+                newHead.x < 0 || newHead.x >= GRID ||
+                newHead.y < 0 || newHead.y >= GRID;
+
+            if (outOfBounds) {
+                if (level === "easy") {
+                    // 简单模式：从对面穿出来
+                    if (newHead.x < 0) newHead.x = GRID - 1;
+                    if (newHead.x >= GRID) newHead.x = 0;
+                    if (newHead.y < 0) newHead.y = GRID - 1;
+                    if (newHead.y >= GRID) newHead.y = 0;
+                } else {
+                    die();
+                    return;
+                }
+            }
+
+            // ---------- 撞障碍物 ----------
+            if (isWall(newHead.x, newHead.y)) {
                 die();
                 return;
             }
 
-            // 撞自己
+            // ---------- 撞自己 ----------
             for (let i = 0; i < snake.length - 1; i++) {
                 if (snake[i].x === newHead.x && snake[i].y === newHead.y) {
                     die();
@@ -357,15 +419,15 @@
             snake.unshift(newHead);
 
             if (newHead.x === food.x && newHead.y === food.y) {
-                // 吃到了！
                 score = score + 1;
                 scoreEl.textContent = score;
-                beep(880, 90);                          // 🔊 "叮"
+                beep(880, 90);
 
-                // 每吃 5 个，稍微加速一点
-                // 最快不超过基础速度的 55%（不会快到失控）
-                if (score % 5 === 0) {
-                    delay = Math.max(Math.round(baseDelay * 0.55), delay - 8);
+                foodsEaten = foodsEaten + 1;
+
+                // 每吃 SPEED_UP_EVERY 个，就加快一点（但不会快过 MIN_DELAY）
+                if (foodsEaten % SPEED_UP_EVERY === 0) {
+                    delay = Math.max(MIN_DELAY, delay - SPEED_UP_STEP);
                 }
 
                 randomFood();
@@ -375,14 +437,10 @@
         }
 
 
-        // ---------- 死亡处理 ----------
         function die() {
             gameOver = true;
-
-            beep(150, 400);                                 // 🔊 低沉的"咚"
-
-            saveScore(score);       // 记进排行榜
-
+            beep(150, 400);
+            saveScore(score);
             draw();
         }
 
@@ -404,32 +462,6 @@
         });
 
 
-        // ---------- 速度选择 ----------
-        function markSpeedButtons() {
-            document.querySelectorAll(".spd").forEach(function (btn) {
-                if (Number(btn.dataset.delay) === baseDelay) {
-                    btn.classList.add("on");
-                } else {
-                    btn.classList.remove("on");
-                }
-            });
-        }
-
-        function setSpeed(value) {
-            baseDelay = value;
-            localStorage.setItem("snakeDelay", value);
-            markSpeedButtons();
-            reset();
-        }
-
-        document.querySelectorAll(".spd").forEach(function (btn) {
-            btn.addEventListener("pointerdown", function (event) {
-                event.preventDefault();
-                setSpeed(Number(btn.dataset.delay));
-            });
-        });
-
-
         // ---------- 屏幕按钮 ----------
         document.querySelectorAll(".pad-btn").forEach(function (btn) {
             btn.addEventListener("pointerdown", function (event) {
@@ -443,7 +475,7 @@
         });
 
 
-        // ---------- 👆 滑动手势（手机上最顺手）----------
+        // ---------- 滑动手势 ----------
         let touchStartX = 0;
         let touchStartY = 0;
 
@@ -456,28 +488,26 @@
             const dx = event.changedTouches[0].clientX - touchStartX;
             const dy = event.changedTouches[0].clientY - touchStartY;
 
-            // 动得太少，不算滑动（可能是想"点一下"）
             if (Math.abs(dx) < 18 && Math.abs(dy) < 18) return;
 
-            // 比较横竖哪个动得多，决定是左右还是上下
             if (Math.abs(dx) > Math.abs(dy)) {
-                if (dx > 0) setDir(1, 0);      // 往右滑
-                else        setDir(-1, 0);     // 往左滑
+                if (dx > 0) setDir(1, 0);
+                else        setDir(-1, 0);
             } else {
-                if (dy > 0) setDir(0, 1);      // 往下滑
-                else        setDir(0, -1);     // 往上滑
+                if (dy > 0) setDir(0, 1);
+                else        setDir(0, -1);
             }
         }, { passive: true });
 
 
-        // ---------- 游戏循环：用 setTimeout 才能随时改速度 ----------
+        // ---------- 游戏循环 ----------
         function tick() {
             move();
             draw();
-            setTimeout(tick, delay);        // 用"当前"的 delay 排下一次
+            setTimeout(tick, delay);
         }
 
-        markSpeedButtons();
+        markLevelButtons();
         reset();
         tick();
     </script>
