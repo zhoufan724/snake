@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐍 贪吃蛇</title>
+    <style>
+        body {
+            font-family: -apple-system, "PingFang SC", sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            text-align: center;
+            padding: 60px 20px;
+        }
+        h1 { font-size: 42px; margin-bottom: 10px; }
+        .box {
+            display: inline-block;
+            background: #16213e;
+            border: 2px solid #0f3460;
+            border-radius: 12px;
+            padding: 30px 50px;
+            margin-top: 20px;
+        }
+        #now { color: #e94560; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>🐍 贪吃蛇</h1>
+    <p>网站上线成功！游戏马上就来。</p>
+
+    <div class="box">
+        <p>现在是：<span id="now"></span></p>
+        <p style="font-size: 13px; color: #888;">（这行时间是 JavaScript 实时显示的）</p>
+    </div>
+
+    <script>
+        document.getElementById("now").textContent = new Date().toLocaleString("zh-CN");
+    </script>
+
+</body>
+</html>
