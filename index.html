@@ -107,7 +107,7 @@
         <button class="pad-btn pad-down"  data-x="0"  data-y="1">▼</button>
     </div>
 
-    <p class="tip">v0.16 — 三档开局速度一样，每吃 3 个食物加快一点</p>
+    <p class="tip">v0.17 — 三档开局速度一样，每吃 3 个食物加快一点</p>
 
 
     <script>
@@ -128,9 +128,9 @@
 
         // ---------- 三档难度：区别只在"规则"，不在速度 ----------
         const LEVELS = {
-            easy:   { rule: "🟢 简单：可以穿墙，撞到自己才会结束" },
-            normal: { rule: "🟡 中等：撞墙或撞自己都会结束" },
-            hard:   { rule: "🔴 困难：有障碍物，撞到就结束" },
+            easy:   { name: "简单", rule: "🟢 简单：可以穿墙，撞到自己才会结束" },
+            normal: { name: "中等", rule: "🟡 中等：撞墙或撞自己都会结束" },
+            hard:   { name: "困难", rule: "🔴 困难：有障碍物，撞到就结束" },
         };
 
         // 读取上次选的难度（旧版本的值不认识就用"中等"）
@@ -139,11 +139,32 @@
 
         let snake, food, dir, score, gameOver, delay, walls, foodsEaten;
 
-        // ---------- 排行榜 ----------
-        let scores = JSON.parse(localStorage.getItem("snakeScores") || "[]");
+        // ---------- 排行榜：每个难度各存一份 ----------
+        // 数据结构：{ easy: [...], normal: [...], hard: [...] }
+        let allScores = JSON.parse(localStorage.getItem("snakeScoresV2") || "null");
+
+        if (!allScores) {
+            // 第一次用新版：把旧数据（一个数组）搬到"中等"难度下
+            const oldScores = JSON.parse(localStorage.getItem("snakeScores") || "[]");
+            allScores = { easy: [], normal: oldScores, hard: [] };
+        }
+
+        // 保险：三个键都必须存在
+        if (!allScores.easy)   allScores.easy = [];
+        if (!allScores.normal) allScores.normal = [];
+        if (!allScores.hard)   allScores.hard = [];
+
         let best = 0;
-        if (scores.length > 0) best = scores[0];
-        bestEl.textContent = best;
+
+        function currentScores() {
+            return allScores[level] || [];
+        }
+
+        function refreshBest() {
+            const list = currentScores();
+            best = (list.length > 0) ? list[0] : 0;
+            bestEl.textContent = best;
+        }
 
 
         // ---------- 音效 ----------
@@ -175,12 +196,14 @@
 
         // ---------- 记成绩 ----------
         function saveScore(value) {
-            scores.push(value);
-            scores.sort(function (a, b) { return b - a; });
-            scores = scores.slice(0, 5);
-            localStorage.setItem("snakeScores", JSON.stringify(scores));
-            best = scores[0];
-            bestEl.textContent = best;
+            const list = currentScores();
+
+            list.push(value);
+            list.sort(function (a, b) { return b - a; });
+            allScores[level] = list.slice(0, 5);
+
+            localStorage.setItem("snakeScoresV2", JSON.stringify(allScores));
+            refreshBest();
         }
 
 
@@ -233,6 +256,7 @@
             level = name;
             localStorage.setItem("snakeLevel", name);
             markLevelButtons();
+            refreshBest();
             reset();
         }
 
@@ -350,16 +374,24 @@
                     ctx.fillText("🏆 新纪录！", W / 2, 130);
                 }
 
+                const list = currentScores();
+
                 ctx.fillStyle = "#4ecca3";
                 ctx.font = "bold 20px sans-serif";
-                ctx.fillText("🏆 排行榜", W / 2, 176);
+                ctx.fillText("🏆 " + LEVELS[level].name + "难度 · 排行榜", W / 2, 172);
 
-                for (let i = 0; i < scores.length; i++) {
-                    const y = 208 + i * 27;
+                if (list.length === 0) {
+                    ctx.fillStyle = "#666";
+                    ctx.font = "16px sans-serif";
+                    ctx.fillText("还没有记录", W / 2, 210);
+                }
+
+                for (let i = 0; i < list.length; i++) {
+                    const y = 204 + i * 27;
                     ctx.fillStyle = (i < 3) ? "#f0c040" : "#888";
                     ctx.font = (i < 3) ? "bold 19px sans-serif" : "17px sans-serif";
                     const medal = (i === 0) ? "🥇" : (i === 1) ? "🥈" : (i === 2) ? "🥉" : (i + 1) + ".";
-                    ctx.fillText(medal + "  " + scores[i] + " 分", W / 2, y);
+                    ctx.fillText(medal + "  " + list[i] + " 分", W / 2, y);
                 }
 
                 ctx.fillStyle = "#666";
@@ -508,6 +540,7 @@
         }
 
         markLevelButtons();
+        refreshBest();
         reset();
         tick();
     </script>
