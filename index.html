@@ -2,27 +2,84 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🐍 贪吃蛇</title>
     <style>
+        * {
+            -webkit-tap-highlight-color: transparent;   /* 去掉手机点击时的蓝框 */
+        }
         body {
             font-family: -apple-system, "PingFang SC", sans-serif;
             background: #1a1a2e;
             color: #eee;
             text-align: center;
-            padding: 30px 20px;
+            padding: 18px 12px 30px;
             margin: 0;
+            touch-action: manipulation;                 /* 禁止双击缩放 */
+            -webkit-user-select: none;
+            user-select: none;
         }
-        h1 { font-size: 32px; margin: 10px 0 20px; }
+        h1 { font-size: 26px; margin: 4px 0 10px; }
+        .score {
+            font-size: 18px;
+            margin: 0 0 12px;
+            color: #888;
+        }
+        .score span {
+            color: #4ecca3;
+            font-weight: bold;
+            font-size: 24px;
+        }
         canvas {
+            width: min(400px, 88vw);                    /* 小屏幕上自动缩小 */
+            height: auto;
             background: #16213e;
             border: 3px solid #0f3460;
-            border-radius: 10px;
+            border-radius: 14px;
+            box-shadow: 0 0 40px rgba(78, 204, 163, 0.15);
+            touch-action: none;                         /* 避免手指滑动时页面跑动 */
         }
+
+        /* ---------- 屏幕方向键 ---------- */
+        .dpad {
+            display: grid;
+            grid-template-areas:
+                ".    up    ."
+                "left .     right"
+                ".    down  .";
+            grid-template-columns: repeat(3, 62px);
+            grid-template-rows: repeat(3, 54px);
+            gap: 8px;
+            justify-content: center;
+            margin: 18px auto 0;
+        }
+        .pad-btn {
+            font-size: 22px;
+            color: #4ecca3;
+            background: #16213e;
+            border: 2px solid #0f3460;
+            border-radius: 12px;
+            cursor: pointer;
+            touch-action: none;
+            transition: background 0.08s;
+        }
+        .pad-btn:active {
+            background: #0f3460;
+            transform: scale(0.94);
+        }
+        .pad-up    { grid-area: up; }
+        .pad-left  { grid-area: left; }
+        .pad-right { grid-area: right; }
+        .pad-down  { grid-area: down; }
+
         .tip {
-            color: #888;
-            font-size: 14px;
-            margin-top: 16px;
+            color: #666;
+            font-size: 13px;
+            margin-top: 18px;
+        }
+        .desktop-only { display: inline; }
+        @media (hover: none) {
+            .desktop-only { display: none; }            /* 手机上不显示"按空格"那句 */
         }
     </style>
 </head>
@@ -30,80 +87,235 @@
 
     <h1>🐍 贪吃蛇</h1>
 
+    <p class="score">得分 <span id="score">0</span></p>
+
     <canvas id="game" width="400" height="400"></canvas>
 
-    <p class="tip">v0.2 — 蛇会动了（暂时会穿墙）</p>
+    <!-- 屏幕方向键 -->
+    <div class="dpad">
+        <button class="pad-btn pad-up"    data-x="0"  data-y="-1">▲</button>
+        <button class="pad-btn pad-left"  data-x="-1" data-y="0">◀</button>
+        <button class="pad-btn pad-right" data-x="1"  data-y="0">▶</button>
+        <button class="pad-btn pad-down"  data-x="0"  data-y="1">▼</button>
+    </div>
+
+    <p class="tip">v0.7 — 按方向键控制，<span class="desktop-only">或空格键</span>重新开始</p>
 
 
     <script>
-        // ---------- 拿到画布和画笔 ----------
         const canvas = document.getElementById("game");
         const ctx = canvas.getContext("2d");
+        const scoreEl = document.getElementById("score");
 
-        // ---------- 基础设置 ----------
-        const CELL = 20;                       // 每个格子 20 像素
-        const GRID = canvas.width / CELL;      // 一共 20 格
-        const SPEED = 200;                     // 多少毫秒走一步（越小越快）
+        const CELL = 20;
+        const GRID = canvas.width / CELL;
+        const SPEED = 150;
 
-        // ---------- 蛇 ----------
-        let snake = [
-            { x: 10, y: 10 },      // 头
-            { x: 9,  y: 10 },      // 身体
-            { x: 8,  y: 10 },      // 尾巴
-        ];
-
-        // ---------- 食物 ----------
-        let food = { x: 15, y: 10 };
+        let snake, food, dir, score, gameOver;
 
 
-        // ---------- 画一个方块 ----------
-        function drawCell(x, y, color) {
-            ctx.fillStyle = color;
-            ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
+        // ---------- 开始新一局 ----------
+        function reset() {
+            snake = [
+                { x: 10, y: 10 },
+                { x: 9,  y: 10 },
+                { x: 8,  y: 10 },
+            ];
+            dir = { x: 1, y: 0 };
+            score = 0;
+            gameOver = false;
+            scoreEl.textContent = score;
+            randomFood();
+            draw();
         }
 
 
-        // ---------- 画整个画面 ----------
+        // ---------- 设置方向（键盘和按钮都调用它）----------
+        function setDir(nx, ny) {
+            if (gameOver) return;
+
+            // 不能 180 度掉头
+            if (nx !== 0 && dir.x === -nx) return;
+            if (ny !== 0 && dir.y === -ny) return;
+
+            dir = { x: nx, y: ny };
+        }
+
+
+        // ---------- 画一个圆角方块 ----------
+        function drawCell(x, y, color, radius) {
+            if (radius === undefined) radius = 6;
+
+            const px = x * CELL + 1;
+            const py = y * CELL + 1;
+            const size = CELL - 2;
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(px, py, size, size, radius);
+            ctx.fill();
+        }
+
+
+        // ---------- 画一个圆点 ----------
+        function drawDot(cx, cy, r, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+
+        // ---------- 随机放食物 ----------
+        function randomFood() {
+            let p, onSnake;
+
+            do {
+                onSnake = false;
+                p = {
+                    x: Math.floor(Math.random() * GRID),
+                    y: Math.floor(Math.random() * GRID),
+                };
+
+                for (let i = 0; i < snake.length; i++) {
+                    if (snake[i].x === p.x && snake[i].y === p.y) onSnake = true;
+                }
+            } while (onSnake);
+
+            food = p;
+        }
+
+
+        // ---------- 画画面 ----------
         function draw() {
             ctx.fillStyle = "#16213e";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            drawCell(food.x, food.y, "#e94560");
+            // 食物：发光
+            ctx.shadowColor = "#e94560";
+            ctx.shadowBlur = 18;
+            drawCell(food.x, food.y, "#e94560", 10);
+            ctx.shadowBlur = 0;
 
+            // 蛇身：由亮到暗
             for (let i = 0; i < snake.length; i++) {
-                const color = (i === 0) ? "#4ecca3" : "#2e8b72";
-                drawCell(snake[i].x, snake[i].y, color);
+                const t = i / snake.length;
+                const lightness = 55 - t * 25;
+                drawCell(snake[i].x, snake[i].y, `hsl(160, 60%, ${lightness}%)`, 6);
+            }
+
+            // 蛇眼睛
+            const head = snake[0];
+            const cx = head.x * CELL + CELL / 2;
+            const cy = head.y * CELL + CELL / 2;
+            const ox = dir.x * 3, oy = dir.y * 3;
+            const px = -dir.y * 4, py = dir.x * 4;
+
+            drawDot(cx + ox + px, cy + oy + py, 2.5, "#0f3460");
+            drawDot(cx + ox - px, cy + oy - py, 2.5, "#0f3460");
+
+            // 结束遮罩
+            if (gameOver) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.78)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.textAlign = "center";
+
+                ctx.fillStyle = "#e94560";
+                ctx.font = "bold 40px sans-serif";
+                ctx.fillText("游戏结束", canvas.width / 2, canvas.height / 2 - 30);
+
+                ctx.fillStyle = "#eee";
+                ctx.font = "22px sans-serif";
+                ctx.fillText("得分：" + score, canvas.width / 2, canvas.height / 2 + 20);
+
+                ctx.fillStyle = "#888";
+                ctx.font = "16px sans-serif";
+                ctx.fillText("点一下画面重新开始", canvas.width / 2, canvas.height / 2 + 60);
             }
         }
 
 
-        // ---------- 走一步：加头、去尾 ----------
+        // ---------- 走一步 ----------
         function move() {
+            if (gameOver) return;
+
             const head = snake[0];
+            const newHead = { x: head.x + dir.x, y: head.y + dir.y };
 
-            // 1. 算出新头的位置（往右一格）
-            const newHead = { x: head.x + 1, y: head.y };
+            if (newHead.x < 0 || newHead.x >= GRID ||
+                newHead.y < 0 || newHead.y >= GRID) {
+                gameOver = true;
+                draw();
+                return;
+            }
 
-            // 2. 暂时让它穿墙（正式版会改成撞墙就死）
-            if (newHead.x >= GRID) newHead.x = 0;
+            for (let i = 0; i < snake.length - 1; i++) {
+                if (snake[i].x === newHead.x && snake[i].y === newHead.y) {
+                    gameOver = true;
+                    draw();
+                    return;
+                }
+            }
 
-            // 3. 头加一格
             snake.unshift(newHead);
 
-            // 4. 尾巴去一格
-            snake.pop();
+            if (newHead.x === food.x && newHead.y === food.y) {
+                score = score + 1;
+                scoreEl.textContent = score;
+                randomFood();
+            } else {
+                snake.pop();
+            }
         }
 
 
-        // ---------- 定时器：每 SPEED 毫秒执行一次 ----------
+        // ---------- 键盘（电脑）----------
+        document.addEventListener("keydown", function (event) {
+            const key = event.key;
+
+            if (key.startsWith("Arrow") || key === " ") event.preventDefault();
+
+            if (key === " ") {
+                if (gameOver) reset();
+                return;
+            }
+
+            if (key === "ArrowUp")    setDir(0, -1);
+            if (key === "ArrowDown")  setDir(0, 1);
+            if (key === "ArrowLeft")  setDir(-1, 0);
+            if (key === "ArrowRight") setDir(1, 0);
+        });
+
+
+        // ---------- 屏幕按钮（手机）----------
+        document.querySelectorAll(".pad-btn").forEach(function (btn) {
+            btn.addEventListener("pointerdown", function (event) {
+                event.preventDefault();
+
+                // 注意：dataset 读出来的是"字符串"，要用 Number 转成数字！
+                const nx = Number(btn.dataset.x);
+                const ny = Number(btn.dataset.y);
+
+                setDir(nx, ny);
+            });
+        });
+
+
+        // ---------- 点画面重新开始（手机用）----------
+        canvas.addEventListener("pointerdown", function () {
+            if (gameOver) reset();
+        });
+
+
+        // ---------- 定时器 ----------
         setInterval(function () {
             move();
             draw();
         }, SPEED);
 
 
-        // ---------- 先画一次，避免开头一闪 ----------
-        draw();
+        reset();
     </script>
 
 </body>
