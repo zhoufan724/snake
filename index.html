@@ -11,16 +11,16 @@
             background: #1a1a2e;
             color: #eee;
             text-align: center;
-            padding: 16px 12px 26px;
+            padding: 10px 10px 14px;
             margin: 0;
             touch-action: manipulation;
             -webkit-user-select: none;
             user-select: none;
         }
-        h1 { font-size: 26px; margin: 4px 0 8px; }
+        h1 { font-size: 22px; margin: 2px 0 6px; }
         .score {
             font-size: 17px;
-            margin: 0 0 12px;
+            margin: 0 0 8px;
             color: #888;
         }
         .score b { color: #4ecca3; font-size: 24px; }
@@ -31,7 +31,7 @@
             font-size: 20px;
         }
         canvas {
-            width: min(400px, 88vw);
+            width: min(400px, 82vw);
             height: auto;
             background: #16213e;
             border: 3px solid #0f3460;
@@ -45,11 +45,11 @@
                 ".    up    ."
                 "left .     right"
                 ".    down  .";
-            grid-template-columns: repeat(3, 62px);
-            grid-template-rows: repeat(3, 52px);
-            gap: 8px;
+            grid-template-columns: repeat(3, 56px);
+            grid-template-rows: repeat(3, 46px);
+            gap: 7px;
             justify-content: center;
-            margin: 16px auto 0;
+            margin: 12px auto 0;
         }
         .pad-btn {
             font-size: 22px;
@@ -66,7 +66,7 @@
         .pad-left  { grid-area: left; }
         .pad-right { grid-area: right; }
         .pad-down  { grid-area: down; }
-        .tip { color: #666; font-size: 13px; margin-top: 16px; }
+        .tip { color: #666; font-size: 12px; margin-top: 12px; }
         .desktop-only { display: inline; }
         @media (hover: none) { .desktop-only { display: none; } }
     </style>
@@ -90,7 +90,7 @@
         <button class="pad-btn pad-down"  data-x="0"  data-y="1">▼</button>
     </div>
 
-    <p class="tip">v0.9 — 每吃 3 个食物会加速，成绩进入排行榜</p>
+    <p class="tip">v0.10 — 手机上可直接在画面里滑动手指控制</p>
 
 
     <script>
@@ -381,6 +381,33 @@
         canvas.addEventListener("pointerdown", function () {
             if (gameOver) reset();
         });
+
+
+        // ---------- 👆 滑动手势（手机上最顺手）----------
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        canvas.addEventListener("touchstart", function (event) {
+            touchStartX = event.touches[0].clientX;
+            touchStartY = event.touches[0].clientY;
+        }, { passive: true });
+
+        canvas.addEventListener("touchend", function (event) {
+            const dx = event.changedTouches[0].clientX - touchStartX;
+            const dy = event.changedTouches[0].clientY - touchStartY;
+
+            // 动得太少，不算滑动（可能是想"点一下"）
+            if (Math.abs(dx) < 18 && Math.abs(dy) < 18) return;
+
+            // 比较横竖哪个动得多，决定是左右还是上下
+            if (Math.abs(dx) > Math.abs(dy)) {
+                if (dx > 0) setDir(1, 0);      // 往右滑
+                else        setDir(-1, 0);     // 往左滑
+            } else {
+                if (dy > 0) setDir(0, 1);      // 往下滑
+                else        setDir(0, -1);     // 往上滑
+            }
+        }, { passive: true });
 
 
         // ---------- 游戏循环：用 setTimeout 才能随时改速度 ----------

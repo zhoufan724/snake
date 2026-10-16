@@ -1,0 +1,13 @@
+# Python 虚拟环境
+.venv/
+venv/
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 后端存数据的文件（本机测试用的）
+scores.json
+
+# macOS
+.DS_Store
