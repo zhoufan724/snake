@@ -5,42 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🐍 贪吃蛇</title>
     <style>
-        * {
-            -webkit-tap-highlight-color: transparent;   /* 去掉手机点击时的蓝框 */
-        }
+        * { -webkit-tap-highlight-color: transparent; }
         body {
             font-family: -apple-system, "PingFang SC", sans-serif;
             background: #1a1a2e;
             color: #eee;
             text-align: center;
-            padding: 18px 12px 30px;
+            padding: 16px 12px 26px;
             margin: 0;
-            touch-action: manipulation;                 /* 禁止双击缩放 */
+            touch-action: manipulation;
             -webkit-user-select: none;
             user-select: none;
         }
-        h1 { font-size: 26px; margin: 4px 0 10px; }
+        h1 { font-size: 26px; margin: 4px 0 8px; }
         .score {
-            font-size: 18px;
+            font-size: 17px;
             margin: 0 0 12px;
             color: #888;
         }
-        .score span {
-            color: #4ecca3;
+        .score b { color: #4ecca3; font-size: 24px; }
+        .score i {
+            font-style: normal;
+            color: #f0c040;
             font-weight: bold;
-            font-size: 24px;
+            font-size: 20px;
         }
         canvas {
-            width: min(400px, 88vw);                    /* 小屏幕上自动缩小 */
+            width: min(400px, 88vw);
             height: auto;
             background: #16213e;
             border: 3px solid #0f3460;
             border-radius: 14px;
             box-shadow: 0 0 40px rgba(78, 204, 163, 0.15);
-            touch-action: none;                         /* 避免手指滑动时页面跑动 */
+            touch-action: none;
         }
-
-        /* ---------- 屏幕方向键 ---------- */
         .dpad {
             display: grid;
             grid-template-areas:
@@ -48,10 +46,10 @@
                 "left .     right"
                 ".    down  .";
             grid-template-columns: repeat(3, 62px);
-            grid-template-rows: repeat(3, 54px);
+            grid-template-rows: repeat(3, 52px);
             gap: 8px;
             justify-content: center;
-            margin: 18px auto 0;
+            margin: 16px auto 0;
         }
         .pad-btn {
             font-size: 22px;
@@ -63,35 +61,28 @@
             touch-action: none;
             transition: background 0.08s;
         }
-        .pad-btn:active {
-            background: #0f3460;
-            transform: scale(0.94);
-        }
+        .pad-btn:active { background: #0f3460; transform: scale(0.94); }
         .pad-up    { grid-area: up; }
         .pad-left  { grid-area: left; }
         .pad-right { grid-area: right; }
         .pad-down  { grid-area: down; }
-
-        .tip {
-            color: #666;
-            font-size: 13px;
-            margin-top: 18px;
-        }
+        .tip { color: #666; font-size: 13px; margin-top: 16px; }
         .desktop-only { display: inline; }
-        @media (hover: none) {
-            .desktop-only { display: none; }            /* 手机上不显示"按空格"那句 */
-        }
+        @media (hover: none) { .desktop-only { display: none; } }
     </style>
 </head>
 <body>
 
     <h1>🐍 贪吃蛇</h1>
 
-    <p class="score">得分 <span id="score">0</span></p>
+    <p class="score">
+        得分 <b id="score">0</b>
+        &nbsp;·&nbsp;
+        最高 <i id="best">0</i>
+    </p>
 
     <canvas id="game" width="400" height="400"></canvas>
 
-    <!-- 屏幕方向键 -->
     <div class="dpad">
         <button class="pad-btn pad-up"    data-x="0"  data-y="-1">▲</button>
         <button class="pad-btn pad-left"  data-x="-1" data-y="0">◀</button>
@@ -99,19 +90,74 @@
         <button class="pad-btn pad-down"  data-x="0"  data-y="1">▼</button>
     </div>
 
-    <p class="tip">v0.7 — 按方向键控制，<span class="desktop-only">或空格键</span>重新开始</p>
+    <p class="tip">v0.9 — 每吃 3 个食物会加速，成绩进入排行榜</p>
 
 
     <script>
         const canvas = document.getElementById("game");
         const ctx = canvas.getContext("2d");
         const scoreEl = document.getElementById("score");
+        const bestEl = document.getElementById("best");
 
         const CELL = 20;
         const GRID = canvas.width / CELL;
-        const SPEED = 150;
 
-        let snake, food, dir, score, gameOver;
+        let snake, food, dir, score, gameOver, delay;
+
+        // ---------- 排行榜（存在浏览器里，最多留 5 条）----------
+        // localStorage 只能存"字符串"，所以用 JSON 转换
+        let scores = JSON.parse(localStorage.getItem("snakeScores") || "[]");
+
+        // 数组是降序排的，第一个就是最高分
+        let best = 0;
+        if (scores.length > 0) best = scores[0];
+        bestEl.textContent = best;
+
+
+        // ---------- 把一个新成绩记进排行榜 ----------
+        function saveScore(value) {
+            scores.push(value);
+
+            // 从大到小排
+            scores.sort(function (a, b) {
+                return b - a;
+            });
+
+            scores = scores.slice(0, 5);        // 只留前 5
+
+            localStorage.setItem("snakeScores", JSON.stringify(scores));
+
+            best = scores[0];
+            bestEl.textContent = best;
+        }
+
+
+        // ---------- 🔊 音效（用代码合成，不用下载音频文件）----------
+        let audioCtx = null;
+
+        function beep(freq, duration) {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === "suspended") audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.frequency.value = freq;
+
+            // 音量从 0.1 慢慢降到接近 0（避免"咔"的杂音）
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(
+                0.001, audioCtx.currentTime + duration / 1000
+            );
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration / 1000);
+        }
 
 
         // ---------- 开始新一局 ----------
@@ -124,28 +170,23 @@
             dir = { x: 1, y: 0 };
             score = 0;
             gameOver = false;
+            delay = 150;                    // 恢复初始速度
             scoreEl.textContent = score;
             randomFood();
             draw();
         }
 
 
-        // ---------- 设置方向（键盘和按钮都调用它）----------
         function setDir(nx, ny) {
             if (gameOver) return;
-
-            // 不能 180 度掉头
             if (nx !== 0 && dir.x === -nx) return;
             if (ny !== 0 && dir.y === -ny) return;
-
             dir = { x: nx, y: ny };
         }
 
 
-        // ---------- 画一个圆角方块 ----------
         function drawCell(x, y, color, radius) {
             if (radius === undefined) radius = 6;
-
             const px = x * CELL + 1;
             const py = y * CELL + 1;
             const size = CELL - 2;
@@ -157,7 +198,6 @@
         }
 
 
-        // ---------- 画一个圆点 ----------
         function drawDot(cx, cy, r, color) {
             ctx.fillStyle = color;
             ctx.beginPath();
@@ -166,7 +206,6 @@
         }
 
 
-        // ---------- 随机放食物 ----------
         function randomFood() {
             let p, onSnake;
 
@@ -176,7 +215,6 @@
                     x: Math.floor(Math.random() * GRID),
                     y: Math.floor(Math.random() * GRID),
                 };
-
                 for (let i = 0; i < snake.length; i++) {
                     if (snake[i].x === p.x && snake[i].y === p.y) onSnake = true;
                 }
@@ -186,7 +224,6 @@
         }
 
 
-        // ---------- 画画面 ----------
         function draw() {
             ctx.fillStyle = "#16213e";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -197,7 +234,7 @@
             drawCell(food.x, food.y, "#e94560", 10);
             ctx.shadowBlur = 0;
 
-            // 蛇身：由亮到暗
+            // 蛇身
             for (let i = 0; i < snake.length; i++) {
                 const t = i / snake.length;
                 const lightness = 55 - t * 25;
@@ -210,50 +247,76 @@
             const cy = head.y * CELL + CELL / 2;
             const ox = dir.x * 3, oy = dir.y * 3;
             const px = -dir.y * 4, py = dir.x * 4;
-
             drawDot(cx + ox + px, cy + oy + py, 2.5, "#0f3460");
             drawDot(cx + ox - px, cy + oy - py, 2.5, "#0f3460");
 
             // 结束遮罩
             if (gameOver) {
-                ctx.fillStyle = "rgba(0, 0, 0, 0.78)";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                const W = canvas.width;
+                const H = canvas.height;
+
+                ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+                ctx.fillRect(0, 0, W, H);
 
                 ctx.textAlign = "center";
 
+                // 标题
                 ctx.fillStyle = "#e94560";
-                ctx.font = "bold 40px sans-serif";
-                ctx.fillText("游戏结束", canvas.width / 2, canvas.height / 2 - 30);
+                ctx.font = "bold 34px sans-serif";
+                ctx.fillText("游戏结束", W / 2, 62);
 
+                // 本次得分
                 ctx.fillStyle = "#eee";
-                ctx.font = "22px sans-serif";
-                ctx.fillText("得分：" + score, canvas.width / 2, canvas.height / 2 + 20);
+                ctx.font = "20px sans-serif";
+                ctx.fillText("本次得分：" + score, W / 2, 102);
 
-                ctx.fillStyle = "#888";
-                ctx.font = "16px sans-serif";
-                ctx.fillText("点一下画面重新开始", canvas.width / 2, canvas.height / 2 + 60);
+                if (score >= best && score > 0) {
+                    ctx.fillStyle = "#f0c040";
+                    ctx.font = "bold 17px sans-serif";
+                    ctx.fillText("🏆 新纪录！", W / 2, 130);
+                }
+
+                // 排行榜
+                ctx.fillStyle = "#4ecca3";
+                ctx.font = "bold 20px sans-serif";
+                ctx.fillText("🏆 排行榜", W / 2, 176);
+
+                for (let i = 0; i < scores.length; i++) {
+                    const y = 208 + i * 27;
+
+                    // 前三名用金色，其他用灰色
+                    ctx.fillStyle = (i < 3) ? "#f0c040" : "#888";
+                    ctx.font = (i < 3) ? "bold 19px sans-serif" : "17px sans-serif";
+
+                    const medal = (i === 0) ? "🥇" : (i === 1) ? "🥈" : (i === 2) ? "🥉" : (i + 1) + ".";
+                    ctx.fillText(medal + "  " + scores[i] + " 分", W / 2, y);
+                }
+
+                // 底部提示
+                ctx.fillStyle = "#666";
+                ctx.font = "14px sans-serif";
+                ctx.fillText("按空格或点画面重新开始", W / 2, H - 22);
             }
         }
 
 
-        // ---------- 走一步 ----------
         function move() {
             if (gameOver) return;
 
             const head = snake[0];
             const newHead = { x: head.x + dir.x, y: head.y + dir.y };
 
+            // 撞墙
             if (newHead.x < 0 || newHead.x >= GRID ||
                 newHead.y < 0 || newHead.y >= GRID) {
-                gameOver = true;
-                draw();
+                die();
                 return;
             }
 
+            // 撞自己
             for (let i = 0; i < snake.length - 1; i++) {
                 if (snake[i].x === newHead.x && snake[i].y === newHead.y) {
-                    gameOver = true;
-                    draw();
+                    die();
                     return;
                 }
             }
@@ -261,8 +324,16 @@
             snake.unshift(newHead);
 
             if (newHead.x === food.x && newHead.y === food.y) {
+                // 吃到了！
                 score = score + 1;
                 scoreEl.textContent = score;
+                beep(880, 90);                          // 🔊 "叮"
+
+                // 每吃 3 个，加速一点（最快 60 毫秒一步）
+                if (score % 3 === 0) {
+                    delay = Math.max(60, delay - 12);
+                }
+
                 randomFood();
             } else {
                 snake.pop();
@@ -270,10 +341,21 @@
         }
 
 
-        // ---------- 键盘（电脑）----------
+        // ---------- 死亡处理 ----------
+        function die() {
+            gameOver = true;
+
+            beep(150, 400);                                 // 🔊 低沉的"咚"
+
+            saveScore(score);       // 记进排行榜
+
+            draw();
+        }
+
+
+        // ---------- 键盘 ----------
         document.addEventListener("keydown", function (event) {
             const key = event.key;
-
             if (key.startsWith("Arrow") || key === " ") event.preventDefault();
 
             if (key === " ") {
@@ -288,34 +370,28 @@
         });
 
 
-        // ---------- 屏幕按钮（手机）----------
+        // ---------- 屏幕按钮 ----------
         document.querySelectorAll(".pad-btn").forEach(function (btn) {
             btn.addEventListener("pointerdown", function (event) {
                 event.preventDefault();
-
-                // 注意：dataset 读出来的是"字符串"，要用 Number 转成数字！
-                const nx = Number(btn.dataset.x);
-                const ny = Number(btn.dataset.y);
-
-                setDir(nx, ny);
+                setDir(Number(btn.dataset.x), Number(btn.dataset.y));
             });
         });
 
-
-        // ---------- 点画面重新开始（手机用）----------
         canvas.addEventListener("pointerdown", function () {
             if (gameOver) reset();
         });
 
 
-        // ---------- 定时器 ----------
-        setInterval(function () {
+        // ---------- 游戏循环：用 setTimeout 才能随时改速度 ----------
+        function tick() {
             move();
             draw();
-        }, SPEED);
-
+            setTimeout(tick, delay);        // 用"当前"的 delay 排下一次
+        }
 
         reset();
+        tick();
     </script>
 
 </body>
