@@ -106,9 +106,9 @@
     </p>
 
     <div class="speedbar">
-        <button class="spd" data-delay="280">🐢 慢</button>
-        <button class="spd" data-delay="190">🐇 中</button>
-        <button class="spd" data-delay="120">⚡ 快</button>
+        <button class="spd" data-delay="400">🐢 慢</button>
+        <button class="spd" data-delay="250">🐇 中</button>
+        <button class="spd" data-delay="150">⚡ 快</button>
     </div>
 
     <canvas id="game" width="400" height="400"></canvas>
@@ -120,7 +120,7 @@
         <button class="pad-btn pad-down"  data-x="0"  data-y="1">▼</button>
     </div>
 
-    <p class="tip">v0.11 — 手机上可直接在画面里滑动手指控制</p>
+    <p class="tip">v0.12 — 手机上可直接在画面里滑动手指控制</p>
 
 
     <script>
@@ -135,7 +135,7 @@
         let snake, food, dir, score, gameOver, delay;
 
         // 基础速度（毫秒），越小越快。存在浏览器里，下次打开还记得
-        let baseDelay = Number(localStorage.getItem("snakeDelay") || 190);
+        let baseDelay = Number(localStorage.getItem("snakeDelay") || 250);
 
         // ---------- 排行榜（存在浏览器里，最多留 5 条）----------
         // localStorage 只能存"字符串"，所以用 JSON 转换
